@@ -115,6 +115,10 @@ export type AssistantMessage = {
   role: "user" | "assistant";
   content: string;
   loading?: boolean;
+  meta?: {
+    provider: string;
+    model: string;
+  };
 };
 
 /**

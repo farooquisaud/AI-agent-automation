@@ -4,6 +4,7 @@ async function getSystemEnvStatus(req, res) {
         ok: true,
         env: {
             groq: Boolean(process.env.GROQ_API_KEY),
+            ollama: Boolean(process.env.OLLAMA_HOST),
             openai: Boolean(process.env.OPENAI_API_KEY),
             gemini: Boolean(process.env.GEMINI_API_KEY),
             hf: Boolean(process.env.HF_API_KEY),

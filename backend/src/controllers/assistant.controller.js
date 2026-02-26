@@ -1,4 +1,8 @@
+const axios = require("axios");
 const groq = require("../services/groq.service");
+const { OpenAI } = require("openai");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+const SystemSettings = require("../models/systemSettings.model");
 
 async function chatWithAssistant(req, res) {
   try {
@@ -8,26 +12,151 @@ async function chatWithAssistant(req, res) {
       return res.status(400).json({ error: "Message is required" });
     }
 
-    const systemPrompt = buildSystemPrompt(context);
-
-    const completion = await groq.chat.completions.create({
-      model: "llama-3.1-8b-instant",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: message },
-      ],
-      temperature: 0.3,
-      max_tokens: 400,
+    const settings = await SystemSettings.findOne({
+      userId: req.user._id,
     });
 
-    const reply =
-      completion.choices?.[0]?.message?.content ??
-      "No response from assistant.";
+    if (!settings?.assistant?.enabled) {
+      return res.status(400).json({
+        error: "Assistant is disabled",
+      });
+    }
 
-    return res.json({ reply });
+    const provider = settings.assistant.provider;
+    const modelFromDB = settings.assistant.model;
+
+    const systemPrompt = buildSystemPrompt(context);
+
+    const messages = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: message },
+    ];
+
+    const result = await sendChat(provider, modelFromDB, messages);
+
+    return res.json(result);
   } catch (err) {
     console.error("Assistant chat error:", err);
-    return res.status(500).json({ error: "assistant_error" });
+    return res.status(400).json({
+      error: err.message || "assistant_error",
+    });
+  }
+}
+
+/* ============================================
+   UNIFIED PROVIDER LAYER
+============================================ */
+
+async function sendChat(provider, modelOverride, messages) {
+  try {
+    switch (provider) {
+      case "ollama": {
+        const model = modelOverride || "gemma3:1b";
+
+        const response = await axios.post(
+          `${process.env.OLLAMA_HOST}/api/chat`,
+          { model, messages, stream: false }
+        );
+
+        return {
+          reply: response.data?.message?.content ?? "No response",
+          provider: "ollama",
+          model,
+        };
+      }
+
+      case "groq": {
+        const model = modelOverride || "llama-3.1-8b-instant";
+
+        const completion = await groq.chat.completions.create({
+          model,
+          messages,
+          temperature: 0.3,
+          max_tokens: 400,
+        });
+
+        return {
+          reply: completion.choices?.[0]?.message?.content ?? "No response",
+          provider: "groq",
+          model,
+        };
+      }
+
+      case "openai": {
+        const model = modelOverride || "gpt-4o-mini";
+
+        const openai = new OpenAI({
+          apiKey: process.env.OPENAI_API_KEY,
+        });
+
+        const completion = await openai.chat.completions.create({
+          model,
+          messages,
+        });
+
+        return {
+          reply: completion.choices?.[0]?.message?.content ?? "No response",
+          provider: "openai",
+          model,
+        };
+      }
+
+      case "gemini": {
+        const model = modelOverride || "gemini-1.5-flash";
+
+        const genAI = new GoogleGenerativeAI(
+          process.env.GEMINI_API_KEY
+        );
+
+        const geminiModel = genAI.getGenerativeModel({ model });
+
+        const result = await geminiModel.generateContent(
+          messages.map((m) => m.content).join("\n")
+        );
+
+        return {
+          reply: result.response.text(),
+          provider: "gemini",
+          model,
+        };
+      }
+
+      case "huggingface": {
+        const model =
+          modelOverride || "mistralai/Mistral-7B-Instruct-v0.2";
+
+        const response = await axios.post(
+          `https://api-inference.huggingface.co/models/${model}`,
+          {
+            inputs: messages.map((m) => m.content).join("\n"),
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${process.env.HF_API_KEY}`,
+            },
+          }
+        );
+
+        if (!response.data?.[0]?.generated_text) {
+          throw new Error("Invalid model or no output returned");
+        }
+
+        return {
+          reply: response.data[0].generated_text,
+          provider: "huggingface",
+          model,
+        };
+      }
+
+      default:
+        throw new Error("No provider selected");
+    }
+  } catch (err) {
+    console.error("LLM Provider Error:", err?.response?.data || err.message);
+
+    throw new Error(
+      `Model '${modelOverride || "default"}' not found or invalid for provider '${provider}'`
+    );
   }
 }
 

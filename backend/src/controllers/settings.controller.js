@@ -3,9 +3,35 @@ const { bumpWorkerSettingsVersion } = require("./system.controller");
 
 async function getSettings(req, res) {
   try {
-    const settings = await SystemSettings.findOne({ userId: req.user._id });
-    res.json({ ok: true, settings });
+    let settings = await SystemSettings.findOne({
+      userId: req.user._id,
+    });
+
+    // If user has no settings yet, create defaults
+    if (!settings) {
+      settings = await SystemSettings.create({
+        userId: req.user._id,
+      });
+    }
+
+    const settingsObj = settings.toObject();
+
+    // 🔥 Detect which providers are actually configured in environment
+    const availableProviders = {
+      ollama: !!process.env.OLLAMA_HOST,
+      groq: !!process.env.GROQ_API_KEY,
+      openai: !!process.env.OPENAI_API_KEY,
+      gemini: !!process.env.GEMINI_API_KEY,
+      huggingface: !!process.env.HF_API_KEY,
+    };
+
+    res.json({
+      ok: true,
+      settings: settingsObj,          // stored user settings (no override)
+      availableProviders,             // runtime availability for UI
+    });
   } catch (err) {
+    console.error("getSettings error", err);
     res.status(500).json({ error: "server_error" });
   }
 }
@@ -18,6 +44,24 @@ async function updateSettings(req, res) {
     if (req.body.ui) update.ui = req.body.ui;
     if (req.body.scheduler) update.scheduler = req.body.scheduler;
     if (req.body.assistant) update.assistant = req.body.assistant;
+
+    if (req.body.assistant?.provider) {
+      const provider = req.body.assistant.provider;
+
+      const availabilityMap = {
+        ollama: !!process.env.OLLAMA_HOST,
+        groq: !!process.env.GROQ_API_KEY,
+        openai: !!process.env.OPENAI_API_KEY,
+        gemini: !!process.env.GEMINI_API_KEY,
+        huggingface: !!process.env.HF_API_KEY,
+      };
+
+      if (!availabilityMap[provider]) {
+        return res.status(400).json({
+          error: "Selected provider is not configured in environment",
+        });
+      }
+    }
 
     const settings = await SystemSettings.findOneAndUpdate(
       { userId: req.user._id },

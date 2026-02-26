@@ -24,14 +24,25 @@ type WorkerSettings = {
 
 type UiTheme = "light" | "dark" | "system" | "midnight" | "solarized";
 
+type AssistantProvider =
+  | "ollama"
+  | "groq"
+  | "openai"
+  | "gemini"
+  | "huggingface";
+
+type AssistantSettings = {
+  enabled: boolean;
+  provider: AssistantProvider | null;
+  model: string | null;
+};
+
 type SystemSettings = {
   worker: WorkerSettings;
   ui: {
     theme: UiTheme;
   };
-  assistant?: {
-    enabled: boolean;
-  };
+  assistant: AssistantSettings;
 };
 
 const DEFAULT_SETTINGS: SystemSettings = {
@@ -44,6 +55,8 @@ const DEFAULT_SETTINGS: SystemSettings = {
   },
   assistant: {
     enabled: false,
+    provider: null,
+    model: null,
   },
 };
 
@@ -52,7 +65,7 @@ const DEFAULT_SETTINGS: SystemSettings = {
 ------------------------- */
 function applyThemeWithTransition(
   setTheme: (theme: string) => void,
-  theme: UiTheme
+  theme: UiTheme,
 ) {
   const root = document.documentElement;
 
@@ -89,11 +102,20 @@ export default function SettingsPage() {
   const { addToast } = useToast();
   const { setMode } = useAssistantContext();
 
+  const [availableProviders, setAvailableProviders] = useState<{
+    ollama?: boolean;
+    groq?: boolean;
+    openai?: boolean;
+    gemini?: boolean;
+    huggingface?: boolean;
+  }>({});
+
   /* -------------------------
      Env status
   ------------------------- */
   const [env, setEnv] = useState<{
     groq: boolean;
+    ollama: boolean;
     openai: boolean;
     gemini: boolean;
     hf: boolean;
@@ -113,6 +135,9 @@ export default function SettingsPage() {
       const data = await res.json();
 
       if (data.ok && data.settings) {
+        // 🔥 Set available providers from backend
+        setAvailableProviders(data.availableProviders || {});
+
         const merged: SystemSettings = {
           ...DEFAULT_SETTINGS,
           ...data.settings,
@@ -124,11 +149,17 @@ export default function SettingsPage() {
             ...DEFAULT_SETTINGS.ui,
             ...data.settings.ui,
           },
+          assistant: {
+            ...DEFAULT_SETTINGS.assistant,
+            ...data.settings.assistant,
+          },
         };
 
         setSettings(merged);
         setTheme(merged.ui.theme);
       }
+    } catch (err) {
+      console.error("Failed to load settings", err);
     } finally {
       setLoading(false);
     }
@@ -146,12 +177,12 @@ export default function SettingsPage() {
   }
 
   useEffect(() => {
-    if (env?.groq) {
+    if (settings.assistant?.enabled) {
       setMode("online");
     } else {
       setMode("offline");
     }
-  }, [env]);
+  }, [settings.assistant?.enabled]);
 
   /* -------------------------
      Save worker settings
@@ -294,6 +325,7 @@ export default function SettingsPage() {
                     {env && (
                       <div className="space-y-1 text-sm">
                         <div>Groq API: {env.groq ? "✅" : "❌"}</div>
+                        <div>Ollama API: {env.ollama ? "✅" : "❌"}</div>
                         <div>OpenAI API: {env.openai ? "✅" : "❌"}</div>
                         <div>Gemini API: {env.gemini ? "✅" : "❌"}</div>
                         <div>HF API: {env.hf ? "✅" : "❌"}</div>
@@ -326,27 +358,31 @@ export default function SettingsPage() {
                     <h2 className="text-lg font-semibold">AI Assistance</h2>
 
                     <p className="text-sm text-muted-foreground">
-                      Enable AI-powered guidance inside workflows and steps.
+                      Select which LLM provider should power in-app assistant.
                     </p>
 
+                    {/* Enable Switch */}
                     <div className="flex items-center justify-between">
-                      <div className="space-y-1">
+                      <div>
                         <div className="font-medium">Enable AI Assistant</div>
                         <div className="text-xs text-muted-foreground">
-                          Uses your configured LLM API keys
+                          Must select provider below
                         </div>
                       </div>
 
                       <Switch
                         checked={!!settings.assistant?.enabled}
-                        disabled={
-                          !env?.groq && !env?.openai && !env?.gemini && !env?.hf
-                        }
+                        disabled={!settings.assistant?.provider}
                         onCheckedChange={async (checked) => {
-                          setSettings((prev) => ({
-                            ...prev,
-                            assistant: { enabled: checked },
-                          }));
+                          const updated = {
+                            ...settings,
+                            assistant: {
+                              ...settings.assistant,
+                              enabled: checked,
+                            },
+                          };
+
+                          setSettings(updated);
 
                           await fetch("http://localhost:5000/api/settings", {
                             method: "PUT",
@@ -356,30 +392,93 @@ export default function SettingsPage() {
                                 "Bearer " + localStorage.getItem("token"),
                             },
                             body: JSON.stringify({
-                              assistant: { enabled: checked },
+                              assistant: updated.assistant,
                             }),
-                          });
-
-                          addToast({
-                            type: "success",
-                            title: checked
-                              ? "AI Assistant Enabled"
-                              : "AI Assistant Disabled",
-                            description: checked
-                              ? "Online AI assistance is now active"
-                              : "Assistant switched to offline mode",
                           });
                         }}
                       />
                     </div>
 
-                    {/* Status hint */}
-                    {!env?.groq && !env?.openai && !env?.gemini && !env?.hf && (
-                      <p className="text-xs text-destructive">
-                        No LLM API keys detected. Add one to enable AI
-                        assistance.
-                      </p>
-                    )}
+                    {/* Provider Select */}
+                    <div>
+                      <Label className="mb-2 block">Provider</Label>
+                      <select
+                        className="w-full border rounded-md p-2 bg-background"
+                        value={settings.assistant?.provider ?? ""}
+                        onChange={async (e) => {
+                          const value = e.target.value;
+
+                          const provider: AssistantProvider | null =
+                            value === "" ? null : (value as AssistantProvider);
+
+                          const updated = {
+                            ...settings,
+                            assistant: {
+                              ...settings.assistant,
+                              provider,
+                            },
+                          };
+
+                          setSettings(updated);
+
+                          await fetch("http://localhost:5000/api/settings", {
+                            method: "PUT",
+                            headers: {
+                              "Content-Type": "application/json",
+                              Authorization:
+                                "Bearer " + localStorage.getItem("token"),
+                            },
+                            body: JSON.stringify({
+                              assistant: updated.assistant,
+                            }),
+                          });
+                        }}
+                      >
+                        <option value="">Select Provider</option>
+
+                        {Object.entries(availableProviders).map(
+                          ([key, available]) =>
+                            available && (
+                              <option key={key} value={key}>
+                                {key}
+                              </option>
+                            ),
+                        )}
+                      </select>
+                    </div>
+
+                    {/* Model Input */}
+                    <div>
+                      <Label className="mb-2 block">
+                        Model (Optional Override)
+                      </Label>
+                      <Input
+                        placeholder="Leave empty for default"
+                        value={settings.assistant?.model ?? ""}
+                        onChange={(e) =>
+                          setSettings((prev) => ({
+                            ...prev,
+                            assistant: {
+                              ...prev.assistant,
+                              model: e.target.value || null,
+                            },
+                          }))
+                        }
+                        onBlur={async () => {
+                          await fetch("http://localhost:5000/api/settings", {
+                            method: "PUT",
+                            headers: {
+                              "Content-Type": "application/json",
+                              Authorization:
+                                "Bearer " + localStorage.getItem("token"),
+                            },
+                            body: JSON.stringify({
+                              assistant: settings.assistant,
+                            }),
+                          });
+                        }}
+                      />
+                    </div>
                   </Card>
                 </motion.div>
               </div>

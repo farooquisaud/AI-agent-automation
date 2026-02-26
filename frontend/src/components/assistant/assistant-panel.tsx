@@ -21,17 +21,29 @@ export function AssistantPanel({ onClose }: { onClose: () => void }) {
       loading: true,
     });
 
-    let reply = "";
-
     if (mode === "offline") {
-      reply = offlineRespond(message, context);
-    } else {
-      reply = await onlineRespond(message, context);
+      const reply = offlineRespond(message, context);
+
+      addMessage({
+        role: "assistant",
+        content: reply,
+      });
+
+      return;
     }
+
+    // 🔥 ONLINE MODE (structured response)
+    const result = await onlineRespond(message, context);
 
     addMessage({
       role: "assistant",
-      content: reply,
+      content: result.reply, // ✅ string only
+      meta: result.provider
+        ? {
+            provider: result.provider,
+            model: result.model ?? "unknown",
+          }
+        : undefined,
     });
   }
 

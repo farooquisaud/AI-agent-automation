@@ -58,7 +58,7 @@ export function AssistantMessages() {
                 isAssistant
                   ? "mr-auto bg-muted text-foreground"
                   : "ml-auto bg-primary text-primary-foreground",
-                msg.loading && "opacity-70"
+                msg.loading && "opacity-70",
               )}
             >
               {/* Assistant label */}
@@ -93,7 +93,7 @@ export function AssistantMessages() {
                   "prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded",
 
                   /* preserve empty lines */
-                  "prose-br:block prose-br:my-2"
+                  "prose-br:block prose-br:my-2",
                 )}
               >
                 <ReactMarkdown
@@ -122,9 +122,17 @@ export function AssistantMessages() {
                     ),
                   }}
                 >
-                  {msg.content}
+                  {typeof msg.content === "string"
+                    ? msg.content
+                    : JSON.stringify(msg.content, null, 2)}
                 </ReactMarkdown>
               </div>
+
+              {msg.meta && (
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {msg.meta.provider} • {msg.meta.model}
+                </div>
+              )}
 
               {/* Loading */}
               {msg.loading && isAssistant && (

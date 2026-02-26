@@ -27,10 +27,13 @@ const SystemSettingsSchema = new mongoose.Schema(
       },
     },
     assistant: {
-      enabled: {
-        type: Boolean,
-        default: false,
+      enabled: { type: Boolean, default: false },
+      provider: {
+        type: String,
+        enum: ["ollama", "openai", "groq", "gemini", "huggingface"],
+        default: null,
       },
+      model: { type: String, default: null },
     },
   },
   { timestamps: true }

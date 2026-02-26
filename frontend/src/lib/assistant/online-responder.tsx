@@ -1,4 +1,3 @@
-// /lib/assistant/online-responder.ts
 import type { AssistantRuntimeContext } from "@/context/assistant-context";
 
 function normalizeMarkdown(text: string) {
@@ -9,10 +8,16 @@ function normalizeMarkdown(text: string) {
     .replace(/^(Request Details)/gm, "## $1");
 }
 
+export type OnlineAssistantResponse = {
+  reply: string;
+  provider?: string;
+  model?: string;
+};
+
 export async function onlineRespond(
   message: string,
-  context?: AssistantRuntimeContext | null
-): Promise<string> {
+  context?: AssistantRuntimeContext | null,
+): Promise<OnlineAssistantResponse> {
   const res = await fetch("http://localhost:5000/api/assistant/chat", {
     method: "POST",
     headers: {
@@ -23,9 +28,19 @@ export async function onlineRespond(
   });
 
   if (!res.ok) {
-    return "Failed to reach AI service. Please check your API configuration.";
+    const errData = await res.json();
+    return {
+      reply:
+        errData.error ||
+        "Failed to reach AI service. Please check configuration.",
+    };
   }
 
   const data = await res.json();
-  return normalizeMarkdown(data.reply) ?? "No response received from AI.";
+
+  return {
+    reply: normalizeMarkdown(data.reply) ?? "No response received from AI.",
+    provider: data.provider,
+    model: data.model,
+  };
 }
