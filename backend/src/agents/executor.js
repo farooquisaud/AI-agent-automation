@@ -10,14 +10,19 @@ require("dotenv").config();
  * step: { type: "llm"|"http"|"email"|"file"|"browser"| ... }
  * context: object with runtime values (task input, workflow metadata, last output etc)
  */
-async function executeStep(step, context = {}) {
+async function executeStep(step, context = {}, agent = null) {
   const start = Date.now();
 
   try {
     // ----- LLM -----
     if (step.type === "llm") {
       const prompt = interpolate(step.prompt, context);
-      const llmRes = await runLLM(prompt, step.options || {});
+      const llmRes = await runLLM(prompt, {
+        provider: agent?.config?.provider,
+        model: agent?.config?.model,
+        temperature: agent?.config?.temperature,
+        ...step.options
+      });
       const result = {
         stepId: step.stepId || null,
         type: "llm",

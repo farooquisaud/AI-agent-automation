@@ -98,6 +98,13 @@ async function runWorkerLoop() {
         ? await Workflow.findById(task.workflowId).lean()
         : null;
 
+      let agent = null;
+
+      if (workflow?.agentId) {
+        const Agent = require("../models/agent.model");
+        agent = await Agent.findById(workflow.agentId).lean();
+      }
+
       const now = new Date();
       const context = {
         ...(task.input || {}),
@@ -134,7 +141,7 @@ async function runWorkerLoop() {
         });
 
         for (const step of steps) {
-          const result = await executeStep(step, context);
+          const result = await executeStep(step, context, agent);
 
           await Task.findByIdAndUpdate(task._id, {
             $push: { stepResults: result },
@@ -159,7 +166,8 @@ async function runWorkerLoop() {
             type: "llm",
             prompt: task.input?.text || "Give a short summary.",
           },
-          context
+          context,
+          agent
         );
 
         await Task.findByIdAndUpdate(task._id, {

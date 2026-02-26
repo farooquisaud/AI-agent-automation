@@ -34,30 +34,35 @@ type Agent = {
   status?: "active" | "inactive";
   workflows?: string;
   config?: {
+    provider?: string;
     model?: string;
     temperature?: number;
     maxTokens?: number;
   };
 };
 
-function getProviderColor(model?: string) {
-  if (!model) return "bg-muted text-muted-foreground";
-
-  if (model.toLowerCase().includes("gpt"))
-    return "bg-green-500/20 text-green-400 border-green-500/30";
-  if (model.toLowerCase().includes("claude"))
-    return "bg-orange-500/20 text-orange-400 border-orange-500/30";
-  if (model.toLowerCase().includes("gemini"))
-    return "bg-blue-500/20 text-blue-400 border-blue-500/30";
-
-  return "bg-muted text-muted-foreground";
-}
-
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const { addToast } = useToast();
   const { setContext, clearContext } = useAssistantContext();
+
+  function getProviderColor(provider?: string) {
+    switch (provider) {
+      case "groq":
+        return "bg-purple-500/20 text-purple-400 border-purple-500/30";
+      case "openai":
+        return "bg-green-500/20 text-green-400 border-green-500/30";
+      case "gemini":
+        return "bg-blue-500/20 text-blue-400 border-blue-500/30";
+      case "ollama":
+        return "bg-orange-500/20 text-orange-400 border-orange-500/30";
+      case "huggingface":
+        return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+      default:
+        return "bg-muted text-muted-foreground";
+    }
+  }
 
   async function fetchAgents() {
     try {
@@ -159,7 +164,7 @@ export default function AgentsPage() {
                             agentId: agent._id,
                             agentName: agent.name,
                             model: agent.config?.model,
-                            temperature: agent.config?.temperature
+                            temperature: agent.config?.temperature,
                           })
                         }
                       >
@@ -183,10 +188,9 @@ export default function AgentsPage() {
 
                         <Badge
                           variant="outline"
-                          className={`mt-2 ${getProviderColor(
-                            agent.config?.model
-                          )}`}
+                          className={`mt-2 ${getProviderColor(agent.config?.provider)}`}
                         >
+                          {agent.config?.provider ?? "unknown"} •{" "}
                           {agent.config?.model ?? "default"}
                         </Badge>
 
@@ -221,7 +225,9 @@ export default function AgentsPage() {
                             <span className="text-muted-foreground">
                               Used in
                             </span>
-                            <span className="font-medium">{agent.workflows ?? "—"}</span>
+                            <span className="font-medium">
+                              {agent.workflows ?? "—"}
+                            </span>
                           </div>
                         </div>
 
@@ -244,7 +250,7 @@ export default function AgentsPage() {
                         </div>
                       </Card>
                     )
-                  )
+                  ),
                 )}
               </div>
             )}
@@ -265,17 +271,60 @@ export function CreateAgentModal({ onCreated }: CreateAgentModalProps) {
 
   const [name, setName] = useState("");
   const [type, setType] = useState<"llm" | "tool">("llm");
-  const [model, setModel] = useState("gpt-4");
+
+  const [providers, setProviders] = useState<any>(null);
+  const [provider, setProvider] = useState<string>("");
+  const [model, setModel] = useState("");
   const [temperature, setTemperature] = useState(0.7);
+
   const { addToast } = useToast();
 
+  /* ------------------------------
+     Fetch Providers on Open
+  ------------------------------ */
+  useEffect(() => {
+    if (!open) return;
+
+    async function loadProviders() {
+      try {
+        const res = await fetch("http://localhost:5000/api/system/providers", {
+          headers: {
+            Authorization: "Bearer " + localStorage.getItem("token"),
+          },
+        });
+
+        const data = await res.json();
+        if (data.ok) {
+          setProviders(data.providers);
+        }
+      } catch (err) {
+        console.error("Failed to load providers", err);
+      }
+    }
+
+    loadProviders();
+  }, [open]);
+
+  /* ------------------------------
+     Create Agent
+  ------------------------------ */
   async function createAgent() {
+    if (!provider || !model) {
+      addToast({
+        type: "error",
+        title: "Missing configuration",
+        description: "Select provider and model",
+      });
+      return;
+    }
+
     try {
       setLoading(true);
 
       const body = {
         name,
         config: {
+          provider,
           model,
           temperature,
         },
@@ -291,36 +340,33 @@ export function CreateAgentModal({ onCreated }: CreateAgentModalProps) {
       });
 
       const data = await res.json();
+      if (!res.ok) throw new Error(data?.error);
 
-      if (!res.ok) {
-        throw new Error(data?.error || "Failed to create agent");
-      }
-
-      // ✅ reset + close
       setOpen(false);
       setName("");
-      setType("llm");
-      setModel("gpt-4");
+      setProvider("");
+      setModel("");
       setTemperature(0.7);
 
       onCreated?.();
+
       addToast({
         type: "success",
         title: "Agent created successfully",
         description: "Your agent was created successfully",
       });
     } catch (err) {
-      console.error("Create agent failed:", err);
-      // alert("Failed to create agent");
       addToast({
         type: "error",
         title: "Failed to create agent",
-        description: "There was an error creating the agent. Please try again.",
+        description: "There was an error creating the agent",
       });
     } finally {
       setLoading(false);
     }
   }
+
+  const selectedProvider = providers?.[provider];
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -332,7 +378,7 @@ export function CreateAgentModal({ onCreated }: CreateAgentModalProps) {
         <DialogHeader>
           <DialogTitle>Create New Agent</DialogTitle>
           <DialogDescription>
-            Configure an AI agent that can run workflows and tasks.
+            Configure an AI agent that can run workflows.
           </DialogDescription>
         </DialogHeader>
 
@@ -342,48 +388,73 @@ export function CreateAgentModal({ onCreated }: CreateAgentModalProps) {
             <Label>Agent Name</Label>
             <Input
               className="mt-1.5"
-              placeholder="e.g. Research Agent"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
           </div>
 
-          {/* Type */}
+          {/* Provider */}
           <div>
-            <Label>Agent Type</Label>
-            <Select value={type} onValueChange={(v: any) => setType(v as any)}>
+            <Label>Provider</Label>
+            <Select
+              value={provider}
+              onValueChange={(v) => {
+                setProvider(v);
+                setModel("");
+              }}
+            >
               <SelectTrigger className="mt-1.5">
-                <SelectValue />
+                <SelectValue placeholder="Select provider" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="llm">LLM Agent</SelectItem>
-                <SelectItem value="tool">Tool Agent</SelectItem>
+                {providers &&
+                  Object.entries(providers).map(([key, value]: any) => (
+                    <SelectItem
+                      key={key}
+                      value={key}
+                      disabled={!value.available}
+                    >
+                      {key}
+                      {!value.available && " (Unavailable)"}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
 
           {/* Model */}
-          <div>
-            <Label>Model</Label>
-            <Select value={model} onValueChange={setModel}>
-              <SelectTrigger className="mt-1.5">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="llama-3.1-8b-instant">
-                  LLaMA 3.1 8B Instant
-                </SelectItem>
-                <SelectItem value="llama-3.3-70b-versatile">
-                  LLaMA 3.3 70B Versatile
-                </SelectItem>
-                <SelectItem value="gemini-1.5-flash">
-                  Gemini 1.5 Flash
-                </SelectItem>
-                <SelectItem value="gemma2-9b-it">Gemma2 9b It</SelectItem>
-                <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {provider && (
+            <div>
+              <Label>Model</Label>
+
+              {selectedProvider?.models?.length > 0 ? (
+                <Select value={model} onValueChange={setModel}>
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Select model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {selectedProvider.models.map((m: string) => (
+                      <SelectItem key={m} value={m}>
+                        {m}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <>
+                  <Input
+                    className="mt-1.5"
+                    placeholder="Enter model name manually"
+                    value={model}
+                    onChange={(e) => setModel(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    No predefined models found. Enter manually.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Temperature */}
           <div>
@@ -397,9 +468,6 @@ export function CreateAgentModal({ onCreated }: CreateAgentModalProps) {
               value={temperature}
               onChange={(e) => setTemperature(Number(e.target.value))}
             />
-            <p className="mt-1 text-xs text-muted-foreground">
-              Controls creativity (0 = deterministic, 1 = creative)
-            </p>
           </div>
         </div>
 

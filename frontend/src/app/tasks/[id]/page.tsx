@@ -125,6 +125,12 @@ export default function TaskDetailPage() {
 
   const { data: task, loading, refetch } = useApi<Task>(`/tasks/${id}`);
 
+  useEffect(() => {
+    if (task) {
+      // console.log("FULL TASK OBJECT:", task);
+    }
+  }, [task]);
+
   const { setContext, clearContext } = useAssistantContext();
 
   function summarizeOutput(output: StepOutput | undefined) {
@@ -277,8 +283,10 @@ export default function TaskDetailPage() {
                         typeof step.output === "string"
                           ? step.output
                           : JSON.stringify(step.output, null, 2);
-                      const stepMetadata = task.steps?.find(
-                        (s) => s.stepId === step.stepId
+                      const stepsMeta = task.metadata?.steps ?? [];
+
+                      const stepMetadata = stepsMeta.find(
+                        (s) => s.stepId === step.stepId,
                       );
                       return (
                         <div key={index} className="relative">
@@ -291,8 +299,8 @@ export default function TaskDetailPage() {
                                 step.success === true
                                   ? "completed"
                                   : step.success === false
-                                  ? "failed"
-                                  : "running"
+                                    ? "failed"
+                                    : "running",
                               )}
 
                               <div className="flex-1">
@@ -313,7 +321,7 @@ export default function TaskDetailPage() {
                                     <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                                       <Clock className="size-3" />
                                       {new Date(
-                                        step.timestamp
+                                        step.timestamp,
                                       ).toLocaleString()}
                                     </div>
                                   </div>
@@ -437,7 +445,7 @@ export default function TaskDetailPage() {
 
                             <p className="text-xs">{item.content}</p>
                           </Card>
-                        )
+                        ),
                       )}
                     </div>
                   </Card>

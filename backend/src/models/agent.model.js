@@ -11,11 +11,14 @@ const AgentSchema = new mongoose.Schema({
 
   // config: model name, temperature, tool list, any other secrets (store only keys, not plaintext secrets ideally)
   config: {
+    provider: {
+      type: String,
+      enum: ["ollama", "groq", "openai", "gemini", "huggingface"],
+      default: "groq"
+    },
     model: { type: String, default: "llama-3.1-8b-instant" },
     temperature: { type: Number, default: 0.2 },
-    // tool configs like { email: { enabled: true }, http: { rateLimit: 10 } }
     tools: { type: mongoose.Schema.Types.Mixed, default: {} },
-    // optional metadata
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} }
   },
 

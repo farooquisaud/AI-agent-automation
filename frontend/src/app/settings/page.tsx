@@ -13,6 +13,16 @@ import { motion } from "framer-motion";
 import { Switch } from "@/components/ui/switch";
 import { useAssistantContext } from "@/context/assistant-context";
 import { useToast } from "@/hooks/use-toast";
+import { ChevronRightIcon } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuRadioGroup,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+  DropdownMenuContent,
+  DropdownMenuRadioItem,
+} from "@/components/ui/dropdown-menu";
 
 /* -------------------------
    Types
@@ -43,6 +53,14 @@ type SystemSettings = {
     theme: UiTheme;
   };
   assistant: AssistantSettings;
+};
+
+const PROVIDER_LABELS: Record<AssistantProvider, string> = {
+  ollama: "Ollama (Local)",
+  groq: "Groq",
+  openai: "OpenAI",
+  gemini: "Gemini",
+  huggingface: "Hugging Face",
 };
 
 const DEFAULT_SETTINGS: SystemSettings = {
@@ -402,49 +420,71 @@ export default function SettingsPage() {
                     {/* Provider Select */}
                     <div>
                       <Label className="mb-2 block">Provider</Label>
-                      <select
-                        className="w-full border rounded-md p-2 bg-background"
-                        value={settings.assistant?.provider ?? ""}
-                        onChange={async (e) => {
-                          const value = e.target.value;
 
-                          const provider: AssistantProvider | null =
-                            value === "" ? null : (value as AssistantProvider);
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="w-full border rounded-md px-3 py-2 bg-background text-left flex items-center justify-between">
+                            <span>
+                              {settings.assistant?.provider
+                                ? PROVIDER_LABELS[
+                                    settings.assistant
+                                      .provider as AssistantProvider
+                                  ]
+                                : "Select Provider"}
+                            </span>
+                            <ChevronRightIcon className="rotate-90 size-4 opacity-60" />
+                          </button>
+                        </DropdownMenuTrigger>
 
-                          const updated = {
-                            ...settings,
-                            assistant: {
-                              ...settings.assistant,
-                              provider,
-                            },
-                          };
+                        <DropdownMenuContent className="w-56">
+                          <DropdownMenuLabel>Select Provider</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
 
-                          setSettings(updated);
+                          <DropdownMenuRadioGroup
+                            value={settings.assistant?.provider ?? ""}
+                            onValueChange={async (value) => {
+                              const provider: AssistantProvider | null =
+                                value === ""
+                                  ? null
+                                  : (value as AssistantProvider);
 
-                          await fetch("http://localhost:5000/api/settings", {
-                            method: "PUT",
-                            headers: {
-                              "Content-Type": "application/json",
-                              Authorization:
-                                "Bearer " + localStorage.getItem("token"),
-                            },
-                            body: JSON.stringify({
-                              assistant: updated.assistant,
-                            }),
-                          });
-                        }}
-                      >
-                        <option value="">Select Provider</option>
+                              const updated = {
+                                ...settings,
+                                assistant: {
+                                  ...settings.assistant,
+                                  provider,
+                                },
+                              };
 
-                        {Object.entries(availableProviders).map(
-                          ([key, available]) =>
-                            available && (
-                              <option key={key} value={key}>
-                                {key}
-                              </option>
-                            ),
-                        )}
-                      </select>
+                              setSettings(updated);
+
+                              await fetch(
+                                "http://localhost:5000/api/settings",
+                                {
+                                  method: "PUT",
+                                  headers: {
+                                    "Content-Type": "application/json",
+                                    Authorization:
+                                      "Bearer " + localStorage.getItem("token"),
+                                  },
+                                  body: JSON.stringify({
+                                    assistant: updated.assistant,
+                                  }),
+                                },
+                              );
+                            }}
+                          >
+                            {Object.entries(availableProviders).map(
+                              ([key, available]) =>
+                                available && (
+                                  <DropdownMenuRadioItem key={key} value={key}>
+                                    {PROVIDER_LABELS[key as AssistantProvider]}
+                                  </DropdownMenuRadioItem>
+                                ),
+                            )}
+                          </DropdownMenuRadioGroup>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
 
                     {/* Model Input */}

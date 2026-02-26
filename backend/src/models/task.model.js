@@ -41,7 +41,7 @@ const TaskSchema = new mongoose.Schema(
 
     name: {
       type: String,
-      default: ""
+      default: "Default Task Name",
     },
 
     status: {
