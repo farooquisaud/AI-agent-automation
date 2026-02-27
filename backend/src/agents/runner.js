@@ -148,7 +148,10 @@ async function runWorkerLoop() {
           });
 
           context.results.push(result);
-          context.last = result.output;
+          context.last = {
+            input: result.input,
+            output: result.output
+          };
 
           if (!result.success) {
             success = false;

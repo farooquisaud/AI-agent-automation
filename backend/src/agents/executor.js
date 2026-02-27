@@ -27,6 +27,7 @@ async function executeStep(step, context = {}, agent = null) {
         stepId: step.stepId || null,
         type: "llm",
         tool: "llm",
+        input: prompt,
         output: llmRes.text,
         raw: llmRes.raw,
         success: true,
@@ -50,6 +51,7 @@ async function executeStep(step, context = {}, agent = null) {
         stepId: step.stepId,
         type: "delay",
         tool: "delay",
+        input: sec,
         output: `Slept for ${sec} seconds`,
         success: true,
         timestamp: new Date(),
@@ -85,13 +87,14 @@ async function executeStep(step, context = {}, agent = null) {
         stepId: step.stepId || null,
         type: "http",
         tool: "http",
+        input: interpolate(step.url || "", context),
         output: response.data,
         success: response.status >= 200 && response.status < 300,
         timestamp: new Date()
       };
     }
 
-    // ----- EMAIL (Mailtrap - minimal test) -----
+    // ----- EMAIL -----
     if (step.type === "email") {
       try {
         const nodemailer = require("nodemailer");
@@ -105,20 +108,24 @@ async function executeStep(step, context = {}, agent = null) {
           },
         });
 
+        const to = interpolate(step.to || "", context);
+        const subject = interpolate(step.subject || "", context);
+        const text = interpolate(step.text || "", context);
+        const html = interpolate(step.html || "", context);
+
         const info = await transporter.sendMail({
           from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
-          to: interpolate(step.to, context),
-          subject: interpolate(step.subject || "", context),
-          text: interpolate(step.text || "", context),
-          html: interpolate(step.html || "", context),
+          to,
+          subject,
+          text,
+          html,
         });
 
-        console.log("✅ Mailtrap response:", info);
-
         return {
-          stepId: step.stepId || null,
+          stepId: step.stepId,
           type: "email",
           tool: "email",
+          input: { to, subject, text, html },
           output: {
             messageId: info.messageId,
             accepted: info.accepted,
@@ -127,12 +134,11 @@ async function executeStep(step, context = {}, agent = null) {
           timestamp: new Date(),
         };
       } catch (err) {
-        console.error("❌ Email step failed:", err);
-
         return {
-          stepId: step.stepId || null,
+          stepId: step.stepId,
           type: "email",
           tool: "email",
+          input: null,
           output: err.message,
           success: false,
           timestamp: new Date(),
@@ -140,182 +146,163 @@ async function executeStep(step, context = {}, agent = null) {
       }
     }
 
-    // ----- FILE (read / write / append) -----
+    // ----- FILE -----
     if (step.type === "file") {
       const action = (step.action || "read").toLowerCase();
 
-      function resolveContent() {
-        if (!step.content) return "";
-
-        // If content wants full JSON output → handle explicitly
-        if (step.content.includes("{{results}}")) {
-          return JSON.stringify(
-            {
-              taskId: context.taskId,
-              workflow: context.workflow?.name,
-              generatedAt: context.timestampIso,
-              steps: context.results || []
-            },
-            null,
-            2
-          );
-        }
-
-        // Otherwise normal interpolation
-        let interpolated = interpolate(step.content, context);
-
-        interpolated = interpolated.replace(
-          /\{\{timestamp\}\}/g,
-          new Date().toISOString()
-        );
-
-        return interpolated;
-      }
-
-
       const resolvedPath = step.path
         ? interpolate(step.path, context)
-        : `runtime/output_${Date.now()}.txt`;
+        : `runtime/stepName_${step.name}_TaskId_${context.taskId}.txt`;
 
       const outPath = path.resolve(process.cwd(), resolvedPath);
-
       const dir = path.dirname(outPath);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-      /* ---------- WRITE ---------- */
-      if (action === "write") {
-        const content = resolveContent();
+      const content = interpolate(step.content || "", context);
 
+      // WRITE
+      if (action === "write") {
         fs.writeFileSync(outPath, content, "utf8");
 
         return {
-          stepId: step.stepId || null,
+          stepId: step.stepId,
           type: "file",
           tool: "file",
+          input: { action, path: outPath, content },
           output: { path: outPath },
           success: true,
-          timestamp: new Date()
+          timestamp: new Date(),
         };
       }
 
-      /* ---------- APPEND ---------- */
+      // APPEND
       if (action === "append") {
-        const content = resolveContent();
-
         fs.appendFileSync(outPath, content + "\n", "utf8");
 
         return {
-          stepId: step.stepId || null,
+          stepId: step.stepId,
           type: "file",
           tool: "file",
+          input: { action, path: outPath, content },
           output: { path: outPath },
           success: true,
-          timestamp: new Date()
+          timestamp: new Date(),
         };
       }
 
-      /* ---------- READ ---------- */
+      // READ
       if (action === "read") {
         if (!fs.existsSync(outPath)) {
           return {
-            stepId: step.stepId || null,
+            stepId: step.stepId,
             type: "file",
             tool: "file",
-            output: `File not found: ${outPath}`,
+            input: { action, path: outPath },
+            output: "File not found",
             success: false,
-            timestamp: new Date()
+            timestamp: new Date(),
           };
         }
 
         const contents = fs.readFileSync(outPath, "utf8");
 
         return {
-          stepId: step.stepId || null,
+          stepId: step.stepId,
           type: "file",
           tool: "file",
+          input: { action, path: outPath },
           output: contents,
           success: true,
-          timestamp: new Date()
+          timestamp: new Date(),
         };
       }
 
-      /* ---------- UNKNOWN ---------- */
       return {
-        stepId: step.stepId || null,
+        stepId: step.stepId,
         type: "file",
         tool: "file",
-        output: `Unknown file action: ${step.action}`,
+        input: { action },
+        output: `Unknown file action: ${action}`,
         success: false,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
     }
 
-    // EXPERIMENTAL
-    // ----- BROWSER (screenshot / evaluate) - uses puppeteer -----
+    // ----- BROWSER -----
     if (step.type === "browser") {
-      // lazy require puppeteer
       const puppeteer = require("puppeteer");
       const action = (step.action || "screenshot").toLowerCase();
       const url = interpolate(step.url || "", context);
 
-      // Some environments require launch args; make them configurable via env
       const browser = await puppeteer.launch({
         headless: process.env.PUPPETEER_HEADLESS !== "false",
-        args: ["--no-sandbox", "--disable-setuid-sandbox"]
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
       });
+
       const page = await browser.newPage();
       await page.setViewport({ width: 1280, height: 800 });
       await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
 
       if (action === "screenshot") {
         const runtimeDir = path.resolve(process.cwd(), "runtime");
-        if (!fs.existsSync(runtimeDir)) fs.mkdirSync(runtimeDir, { recursive: true });
+        if (!fs.existsSync(runtimeDir))
+          fs.mkdirSync(runtimeDir, { recursive: true });
 
-        const outName = `screenshot_${Date.now()}.png`;
-        const outPath = path.join(runtimeDir, outName);
+        const outPath = path.join(
+          runtimeDir,
+          `screenshot_${context.taskId}_${Date.now()}.png`
+        );
+
         await page.screenshot({ path: outPath, fullPage: true });
         await browser.close();
 
         return {
-          stepId: step.stepId || null,
+          stepId: step.stepId,
           type: "browser",
           tool: "browser",
+          input: { action, url },
           output: { path: outPath },
           success: true,
-          timestamp: new Date()
+          timestamp: new Date(),
         };
       }
 
       if (action === "evaluate") {
-        const code = step.code || step.script || "return document.title;";
-        const evaluation = await page.evaluate(code => {
+        const userCode = step.code || "return document.title;";
+
+        const result = await page.evaluate((code) => {
           try {
-            return eval(code);
+            // Wrap inside function so "return" works
+            const fn = new Function(code);
+            return fn();
           } catch (e) {
             return { error: e.message };
           }
-        }, code);
+        }, userCode);
 
         await browser.close();
 
         return {
-          stepId: step.stepId || null,
+          stepId: step.stepId,
           type: "browser",
           tool: "browser",
-          output: evaluation,
-          success: true,
-          timestamp: new Date()
+          input: { action, url, code: userCode },
+          output: result,
+          success: !result?.error,
+          timestamp: new Date(),
         };
       }
 
       await browser.close();
+
       return {
-        stepId: step.stepId || null,
+        stepId: step.stepId,
         type: "browser",
         tool: "browser",
+        input: { action },
         output: `Unknown browser action: ${action}`,
         success: false,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
     }
 
@@ -324,6 +311,7 @@ async function executeStep(step, context = {}, agent = null) {
       stepId: step.stepId || null,
       type: step.type || "unknown",
       tool: step.tool || "unknown",
+      input: null,
       output: `Unknown step type: ${step.type}`,
       success: false,
       timestamp: new Date()
@@ -334,6 +322,7 @@ async function executeStep(step, context = {}, agent = null) {
       stepId: step.stepId || null,
       type: step.type || "unknown",
       tool: step.tool || "unknown",
+      input: "[error]",
       output: err.message,
       success: false,
       error: (err && err.stack) ? String(err.stack).slice(0, 2000) : undefined,
@@ -359,7 +348,13 @@ function interpolate(template = "", context = {}) {
       if (val === undefined || val === null) break;
       val = val[p];
     }
-    return (val !== undefined && val !== null) ? String(val) : "";
+    if (val === undefined || val === null) return "";
+
+    if (typeof val === "object") {
+      return JSON.stringify(val, null, 2);
+    }
+
+    return String(val);
   });
 }
 

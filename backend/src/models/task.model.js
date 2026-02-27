@@ -8,6 +8,7 @@ const StepResultSchema = new mongoose.Schema(
     stepId: { type: String },
     type: { type: String },
     tool: { type: String },
+    input: { type: mongoose.Schema.Types.Mixed },
     output: { type: mongoose.Schema.Types.Mixed },
     success: { type: Boolean, default: true },
     timestamp: { type: Date, default: Date.now }
