@@ -1,6 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
+import { v4 as uuidv4 } from "uuid";
 import { useState } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Card } from "@/components/ui/card";
@@ -26,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 /* ---------------- TYPES ---------------- */
 
 type StepType = "LLM" | "HTTP" | "Delay" | "Tool";
+type ToolType = "email" | "file" | "browser";
 
 type WorkflowStep = {
   id: string;
@@ -38,10 +40,27 @@ type WorkflowStep = {
   // HTTP
   url?: string;
   method?: "GET" | "POST" | "PUT" | "DELETE";
-  body?: string; // 🔥 ADD THIS
+  body?: string;
 
   // Delay
   delay?: number;
+
+  // 🔥 Tool
+  tool?: ToolType;
+
+  // Email
+  to?: string;
+  subject?: string;
+  text?: string;
+  html?: string;
+
+  // File
+  action?: string;
+  path?: string;
+  content?: string;
+
+  // Browser
+  code?: string;
 };
 
 type BackendStep = {
@@ -124,7 +143,7 @@ function summarizeStep(step: WorkflowStep) {
       }
 
       return [`Method: ${method}`, `URL: ${url}`, `Body: ${bodyStatus}`].join(
-        " | "
+        " | ",
       );
     }
 
@@ -167,23 +186,42 @@ export default function WorkflowBuilderPage() {
       const backendSteps = workflow.metadata?.steps ?? [];
 
       // 🔄 normalize backend steps → builder steps
-      const normalizedSteps: WorkflowStep[] = backendSteps.map((s, index) => ({
+      const normalizedSteps: WorkflowStep[] = backendSteps.map((s) => ({
         id: s.stepId,
         name: s.name,
         type:
           s.type === "delay"
             ? "Delay"
             : s.type === "http"
-            ? "HTTP"
-            : s.type === "tool"
-            ? "Tool"
-            : "LLM",
+              ? "HTTP"
+              : s.type === "file" || s.type === "email" || s.type === "browser"
+                ? "Tool"
+                : "LLM",
 
+        // LLM
         prompt: s.prompt ?? "",
+
+        // HTTP
         url: s.url ?? "",
         method: s.method ?? "GET",
         body: s.body ?? "",
-        delay: s.type === "delay" ? s.seconds ?? 0 : 0,
+
+        // Delay
+        delay: s.type === "delay" ? (s.seconds ?? 0) : 0,
+
+        // 🔥 TOOL FIELDS
+        tool:
+          s.type === "file" || s.type === "email" || s.type === "browser"
+            ? (s.type as ToolType)
+            : undefined,
+        to: (s as any).to ?? "",
+        subject: (s as any).subject ?? "",
+        text: (s as any).text ?? "",
+        html: (s as any).html ?? "",
+        action: (s as any).action ?? "",
+        path: (s as any).path ?? "",
+        content: (s as any).content ?? "",
+        code: (s as any).code ?? "",
       }));
 
       setSteps(normalizedSteps);
@@ -223,7 +261,7 @@ export default function WorkflowBuilderPage() {
     setSteps((prev) => [
       ...prev,
       {
-        id: crypto.randomUUID(),
+        id: uuidv4(),
         type: "LLM",
         name: "New Step",
         prompt: "",
@@ -234,43 +272,91 @@ export default function WorkflowBuilderPage() {
   async function saveWorkflow() {
     try {
       const backendSteps: BackendStepPayload[] = steps.map((s) => {
-        const base: BackendStepPayload = {
-          stepId: s.id,
-          name: s.name,
-          type:
-            s.type === "LLM"
-              ? "llm"
-              : s.type === "HTTP"
-              ? "http"
-              : s.type === "Delay"
-              ? "delay"
-              : "tool",
-        };
-
+        // ----- LLM -----
         if (s.type === "LLM") {
           return {
-            ...base,
+            stepId: s.id,
+            name: s.name,
+            type: "llm",
             prompt: s.prompt ?? "",
           };
         }
 
+        // ----- Delay -----
         if (s.type === "Delay") {
           return {
-            ...base,
+            stepId: s.id,
+            name: s.name,
+            type: "delay",
             seconds: s.delay ?? 0,
           };
         }
 
+        // ----- HTTP -----
         if (s.type === "HTTP") {
           return {
-            ...base,
+            stepId: s.id,
+            name: s.name,
+            type: "http",
             method: s.method ?? "GET",
             url: s.url ?? "",
             body: s.body ?? "",
           };
         }
 
-        return base;
+        // ----- TOOL (convert to real executor type) -----
+        if (s.type === "Tool" && s.tool) {
+          // 🔥 convert tool → actual executor type
+          const toolType = s.tool.toLowerCase();
+          // expected: "file" | "email" | "browser"
+
+          const base: any = {
+            stepId: s.id,
+            name: s.name,
+            type: toolType,
+          };
+
+          // ----- FILE -----
+          if (toolType === "file") {
+            return {
+              ...base,
+              action: s.action ?? "read",
+              path: s.path ?? "",
+              content: s.content ?? "",
+            };
+          }
+
+          // ----- EMAIL -----
+          if (toolType === "email") {
+            return {
+              ...base,
+              to: s.to ?? "",
+              subject: s.subject ?? "",
+              text: s.text ?? "",
+              html: s.html ?? "",
+            };
+          }
+
+          // ----- BROWSER -----
+          if (toolType === "browser") {
+            return {
+              ...base,
+              action: s.action ?? "screenshot",
+              url: s.url ?? "",
+              code: s.code ?? "",
+            };
+          }
+
+          // fallback safety
+          return base;
+        }
+
+        // fallback (should never hit)
+        return {
+          stepId: s.id,
+          name: s.name,
+          type: "unknown" as any,
+        };
       });
 
       const res = await fetch(
@@ -284,13 +370,13 @@ export default function WorkflowBuilderPage() {
           body: JSON.stringify({
             steps: backendSteps,
           }),
-        }
+        },
       );
 
       if (!res.ok) {
         throw new Error("Failed to save workflow");
       }
-      // alert("✅ Workflow saved successfully");
+
       addToast({
         type: "success",
         title: "Workflow saved",
@@ -312,7 +398,7 @@ export default function WorkflowBuilderPage() {
 
   function updateStep(stepId: string, patch: Partial<WorkflowStep>) {
     setSteps((prev) =>
-      prev.map((s) => (s.id === stepId ? { ...s, ...patch } : s))
+      prev.map((s) => (s.id === stepId ? { ...s, ...patch } : s)),
     );
   }
   if (loading) {
@@ -463,6 +549,184 @@ export default function WorkflowBuilderPage() {
                             }
                           />
                         </div>
+
+                        {/* Tools */}
+                        {step.type === "Tool" && (
+                          <>
+                            <div>
+                              <Label>Tool</Label>
+                              <Select
+                                value={step.tool}
+                                onValueChange={(v) =>
+                                  updateStep(step.id, { tool: v as any })
+                                }
+                              >
+                                <SelectTrigger className="mt-1.5">
+                                  <SelectValue placeholder="Select tool" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="email">Email</SelectItem>
+                                  <SelectItem value="file">File</SelectItem>
+                                  <SelectItem value="browser">
+                                    Browser
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {step.tool === "email" && (
+                              <>
+                                <div>
+                                  <Label>To</Label>
+                                  <Input
+                                    className="mt-1.5"
+                                    value={step.to ?? ""}
+                                    onChange={(e) =>
+                                      updateStep(step.id, {
+                                        to: e.target.value,
+                                      })
+                                    }
+                                  />
+                                </div>
+
+                                <div>
+                                  <Label>Subject</Label>
+                                  <Input
+                                    className="mt-1.5"
+                                    value={step.subject ?? ""}
+                                    onChange={(e) =>
+                                      updateStep(step.id, {
+                                        subject: e.target.value,
+                                      })
+                                    }
+                                  />
+                                </div>
+
+                                <div>
+                                  <Label>Text</Label>
+                                  <Textarea
+                                    className="mt-1.5"
+                                    value={step.text ?? ""}
+                                    onChange={(e) =>
+                                      updateStep(step.id, {
+                                        text: e.target.value,
+                                      })
+                                    }
+                                  />
+                                </div>
+                              </>
+                            )}
+
+                            {step.tool === "file" && (
+                              <>
+                                <div>
+                                  <Label>Action</Label>
+                                  <Select
+                                    value={step.action}
+                                    onValueChange={(v) =>
+                                      updateStep(step.id, { action: v })
+                                    }
+                                  >
+                                    <SelectTrigger className="mt-1.5">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="write">
+                                        Write
+                                      </SelectItem>
+                                      <SelectItem value="append">
+                                        Append
+                                      </SelectItem>
+                                      <SelectItem value="read">Read</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                <div>
+                                  <Label>Path</Label>
+                                  <Input
+                                    className="mt-1.5"
+                                    value={step.path ?? ""}
+                                    onChange={(e) =>
+                                      updateStep(step.id, {
+                                        path: e.target.value,
+                                      })
+                                    }
+                                  />
+                                </div>
+
+                                {step.action !== "read" && (
+                                  <div>
+                                    <Label>Content</Label>
+                                    <Textarea
+                                      className="mt-1.5"
+                                      value={step.content ?? ""}
+                                      onChange={(e) =>
+                                        updateStep(step.id, {
+                                          content: e.target.value,
+                                        })
+                                      }
+                                    />
+                                  </div>
+                                )}
+                              </>
+                            )}
+
+                            {step.tool === "browser" && (
+                              <>
+                                <div>
+                                  <Label>Action</Label>
+                                  <Select
+                                    value={step.action}
+                                    onValueChange={(v) =>
+                                      updateStep(step.id, { action: v })
+                                    }
+                                  >
+                                    <SelectTrigger className="mt-1.5">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="screenshot">
+                                        Screenshot
+                                      </SelectItem>
+                                      <SelectItem value="evaluate">
+                                        Evaluate
+                                      </SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                <div>
+                                  <Label>URL</Label>
+                                  <Input
+                                    className="mt-1.5"
+                                    value={step.url ?? ""}
+                                    onChange={(e) =>
+                                      updateStep(step.id, {
+                                        url: e.target.value,
+                                      })
+                                    }
+                                  />
+                                </div>
+
+                                {step.action === "evaluate" && (
+                                  <div>
+                                    <Label>Code</Label>
+                                    <Textarea
+                                      className="mt-1.5 font-mono text-sm"
+                                      value={step.code ?? ""}
+                                      onChange={(e) =>
+                                        updateStep(step.id, {
+                                          code: e.target.value,
+                                        })
+                                      }
+                                    />
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </>
+                        )}
 
                         {/* LLM */}
                         {step.type === "LLM" && (

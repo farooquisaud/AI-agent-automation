@@ -127,7 +127,7 @@ export default function TaskDetailPage() {
 
   useEffect(() => {
     if (task) {
-      // console.log("FULL TASK OBJECT:", task);
+      console.log("FULL TASK OBJECT:", task);
     }
   }, [task]);
 
