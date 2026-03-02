@@ -35,6 +35,8 @@ type WorkflowStep = {
   name: string;
 
   // LLM
+  useMemory?: boolean;
+  memoryTopK?: number;
   prompt?: string;
 
   // HTTP
@@ -199,6 +201,8 @@ export default function WorkflowBuilderPage() {
                 : "LLM",
 
         // LLM
+        useMemory: (s as any).useMemory ?? false,
+        memoryTopK: (s as any).memoryTopK ?? 5,
         prompt: s.prompt ?? "",
 
         // HTTP
@@ -279,6 +283,8 @@ export default function WorkflowBuilderPage() {
             name: s.name,
             type: "llm",
             prompt: s.prompt ?? "",
+            useMemory: s.useMemory ?? false,
+            memoryTopK: s.memoryTopK ?? 5,
           };
         }
 
@@ -730,18 +736,59 @@ export default function WorkflowBuilderPage() {
 
                         {/* LLM */}
                         {step.type === "LLM" && (
-                          <div>
-                            <Label>Prompt</Label>
-                            <Textarea
-                              className="mt-1.5 min-h-[100px] font-mono text-sm"
-                              value={step.prompt ?? ""}
-                              onChange={(e) =>
-                                updateStep(step.id, {
-                                  prompt: e.target.value,
-                                })
-                              }
-                            />
-                          </div>
+                          <>
+                            <div>
+                              <Label>Prompt</Label>
+                              <Textarea
+                                className="mt-1.5 min-h-[100px] font-mono text-sm"
+                                value={step.prompt ?? ""}
+                                onChange={(e) =>
+                                  updateStep(step.id, {
+                                    prompt: e.target.value,
+                                  })
+                                }
+                              />
+                            </div>
+
+                            {/* 🔥 Advanced Options */}
+                            <div className="mt-4 rounded-lg border border-muted p-4">
+                              <p className="text-sm font-semibold mb-3">
+                                Advanced Options
+                              </p>
+
+                              <div className="flex items-center justify-between">
+                                <Label className="cursor-pointer">
+                                  Use Agent Memory
+                                </Label>
+
+                                <input
+                                  type="checkbox"
+                                  checked={step.useMemory ?? false}
+                                  onChange={(e) =>
+                                    updateStep(step.id, {
+                                      useMemory: e.target.checked,
+                                    })
+                                  }
+                                />
+                              </div>
+
+                              {step.useMemory && (
+                                <div className="mt-3">
+                                  <Label>Memory Top K</Label>
+                                  <Input
+                                    type="number"
+                                    className="mt-1.5"
+                                    value={step.memoryTopK ?? 5}
+                                    onChange={(e) =>
+                                      updateStep(step.id, {
+                                        memoryTopK: Number(e.target.value),
+                                      })
+                                    }
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </>
                         )}
 
                         {/* HTTP */}

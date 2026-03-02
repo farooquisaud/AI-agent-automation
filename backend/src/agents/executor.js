@@ -17,7 +17,45 @@ async function executeStep(step, context = {}, agent = null) {
     // ----- LLM -----
     if (step.type === "llm") {
       const prompt = interpolate(step.prompt, context);
-      const llmRes = await runLLM(prompt, {
+
+      let finalPrompt = prompt;
+
+      if (step.useMemory && agent) {
+        const { retrieveMemory } = require("../services/memoryService");
+
+        const memories = await retrieveMemory(agent, prompt, step.memoryTopK || 5);
+
+        if (memories.length > 0) {
+          const MAX_MEMORY_CHARS = 4000;
+
+          let memoryText = memories
+            .map((m, i) => {
+              const parsed = JSON.parse(m.content);
+              return `Memory ${i + 1}:\nUser: ${parsed.user}\nAssistant: ${parsed.assistant}`;
+            })
+            .join("\n\n");
+
+          if (memoryText.length > MAX_MEMORY_CHARS) {
+            memoryText = memoryText.slice(0, MAX_MEMORY_CHARS);
+          }
+
+          finalPrompt =
+            `SYSTEM INSTRUCTION:
+You are an AI agent with persistent memory.
+The following MEMORY is factual and must be used when answering.
+
+MEMORY:
+${memoryText}
+
+USER QUESTION:
+${prompt}
+
+Answer strictly based on MEMORY if relevant.
+Do not say you lack memory.`;
+        }
+      }
+
+      const llmRes = await runLLM(finalPrompt, {
         provider: agent?.config?.provider,
         model: agent?.config?.model,
         temperature: agent?.config?.temperature,
@@ -33,6 +71,24 @@ async function executeStep(step, context = {}, agent = null) {
         success: true,
         timestamp: new Date()
       };
+
+      if (step.useMemory && agent && llmRes.text) {
+        const { storeMemory } = require("../services/memoryService");
+
+        await storeMemory(
+          agent,
+          JSON.stringify({
+            user: prompt,
+            assistant: llmRes.text
+          }),
+          {
+            taskId: context.taskId,
+            workflowId: context.workflow?._id,
+            type: "conversation"
+          }
+        );
+      }
+
       return result;
     }
 
