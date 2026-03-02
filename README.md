@@ -128,11 +128,16 @@ Each workflow run becomes a **Task** with full traceability.
 
 ---
 
-### 🧠 Agent Memory _(In Progress)_
+### 🧠 Agent Semantic Memory
 
-- Persistent memory per agent
-- Store learned facts & system knowledge
-- Enables adaptive workflows over time
+- Persistent, agent-scoped semantic memory
+- Embedding-based retrieval using cosine similarity
+- Similarity threshold filtering to prevent noise
+- Retention cap per agent
+- Token-safe prompt injection
+- Fully vendor-agnostic (no external vector DB required)
+
+Enables agents to recall relevant past interactions across workflow executions.
 
 ---
 
@@ -199,6 +204,8 @@ MongoDB (Workflows, Tasks, Agents, Logs)
 - Secrets via environment variables only
 - No vendor lock-in
 - No hidden SaaS dependencies
+- Memory stored locally in MongoDB
+- No external vector database required
 
 ---
 
