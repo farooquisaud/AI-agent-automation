@@ -1,161 +1,301 @@
-// backend/src/controllers/document.controller.js
-const fs = require("fs");
-const path = require("path");
 const pdf = require("pdf-parse");
 const multer = require("multer");
-const { embedText } = require("../services/embeddingService");
-const { saveDocument, newId, listDocumentsByUser, getDocument, addChunksToDocument, queryTopK } = require("../services/vectorStore");
-const { runLLM } = require("../agents/llmAdapter"); // use your LLM adapter
 
-// multer storage (in-memory)
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 30 * 1024 * 1024 } });
+const Document = require("../models/document.model");
+const DocumentChunk = require("../models/documentChunk.model");
+const SystemSettings = require("../models/systemSettings.model");
 
-/** Helper: chunk text into pieces ~ chunkSize chars with overlap */
-function chunkText(text, chunkSize = 1000, overlap = 200) {
-  const chunks = [];
-  let i = 0;
-  while (i < text.length) {
-    const end = Math.min(text.length, i + chunkSize);
-    const piece = text.slice(i, end).trim();
-    if (piece) chunks.push(piece);
-    i += chunkSize - overlap;
-  }
-  return chunks;
-}
+const { processDocument, queryDocument } = require("../services/documentService");
+const { runLLM } = require("../agents/llmAdapter");
 
-/** POST /api/documents/upload (multipart form 'file') */
+const upload = multer({ storage: multer.memoryStorage() });
+
+/* -----------------------------
+   Upload Document
+----------------------------- */
+
 async function uploadDocument(req, res) {
   try {
-    // multer middleware puts file on req.file
+
     const file = req.file;
-    if (!file) return res.status(400).json({ ok: false, error: "file_required" });
 
-    // create docId and runtime dir
-    const docId = newId("doc_");
-    const runtimeDir = path.join(process.cwd(), "runtime", "docs", docId);
-    fs.mkdirSync(runtimeDir, { recursive: true });
-
-    // save raw file
-    const filename = file.originalname || `${docId}.pdf`;
-    const filePath = path.join(runtimeDir, filename);
-    fs.writeFileSync(filePath, file.buffer);
-
-    // extract text from pdf using pdf-parse
-    const pdfData = await pdf(file.buffer);
-    const text = (pdfData && pdfData.text) ? pdfData.text : "";
-
-    // chunk text
-    const chunks = chunkText(text, 1200, 200);
-
-    // embed each chunk (sequential to avoid big memory spikes)
-    const savedChunks = [];
-    for (let idx = 0; idx < chunks.length; idx++) {
-      const ctext = chunks[idx];
-      const embedding = await embedText(ctext);
-      savedChunks.push({
-        id: newId("chunk_"),
-        text: ctext,
-        embedding,
-        order: idx
+    if (!file) {
+      return res.status(400).json({
+        ok: false,
+        error: "file_required"
       });
     }
 
-    // Save doc metadata and chunks to vector store
-    const doc = {
-      docId,
-      userId: req.user ? String(req.user._id) : null,
-      filename,
-      filepath: filePath,
-      createdAt: Date.now(),
-      chunks: savedChunks
-    };
-    saveDocument(doc);
+    const extension = file.originalname.split(".").pop().toLowerCase();
 
-    return res.status(201).json({ ok: true, docId, doc });
+    let text = "";
+
+    /* ---------- PDF ---------- */
+    if (extension === "pdf") {
+
+      const pdfData = await pdf(file.buffer);
+      text = pdfData.text || "";
+
+    }
+
+    /* ---------- TEXT / MARKDOWN ---------- */
+    else if (extension === "txt" || extension === "md") {
+
+      text = file.buffer.toString("utf-8");
+
+    }
+
+    /* ---------- JSON ---------- */
+    else if (extension === "json") {
+
+      const json = JSON.parse(file.buffer.toString("utf-8"));
+      text = JSON.stringify(json, null, 2);
+
+    }
+
+    /* ---------- CSV ---------- */
+    else if (extension === "csv") {
+
+      text = file.buffer.toString("utf-8");
+
+    }
+
+    /* ---------- UNSUPPORTED ---------- */
+    else {
+
+      return res.status(400).json({
+        ok: false,
+        error: "unsupported_file_type"
+      });
+
+    }
+
+    if (!text.trim()) {
+      return res.status(400).json({
+        ok: false,
+        error: "empty_document"
+      });
+    }
+
+    /* ---------- Create document record ---------- */
+
+    const document = await Document.create({
+      userId: req.user._id,
+      title: file.originalname,
+      fileType: extension,
+      size: file.size
+    });
+
+    /* ---------- Process document (chunk + embed) ---------- */
+
+    const settings = await SystemSettings.findOne({
+      userId: req.user._id,
+    });
+
+    const chatSettings = settings?.documentChat || {};
+
+    const provider = chatSettings.provider || "ollama";
+    const model = chatSettings.model || "gemma3:1b";
+    const topK = chatSettings.topK || 3;
+    const temperature = chatSettings.temperature ?? 0.2;
+
+    const agent = { config: { provider } };
+
+    await processDocument(agent, document, text);
+
+    res.json({
+      ok: true,
+      document
+    });
+
   } catch (err) {
-    console.error("uploadDocument error", err);
-    return res.status(500).json({ ok: false, error: "server_error", detail: err.message });
+
+    console.error("Document upload error:", err);
+
+    res.status(500).json({
+      ok: false,
+      error: "upload_failed"
+    });
+
   }
 }
 
-/** GET /api/documents (list current user's documents) */
-async function listDocs(req, res) {
-  try {
-    const docs = listDocumentsByUser(String(req.user._id));
-    return res.json({ ok: true, docs });
-  } catch (err) {
-    console.error("listDocs error", err);
-    return res.status(500).json({ ok: false, error: "server_error" });
-  }
+/* -----------------------------
+   List Documents
+----------------------------- */
+
+async function listDocuments(req, res) {
+
+  const docs = await Document.find({
+    userId: req.user._id
+  }).sort({ createdAt: -1 });
+
+  res.json({
+    ok: true,
+    documents: docs
+  });
+
 }
 
-/** GET /api/documents/:docId (get metadata) */
-async function getDoc(req, res) {
-  try {
-    const doc = getDocument(req.params.docId);
-    if (!doc) return res.status(404).json({ ok: false, error: "not_found" });
-    if (doc.userId !== String(req.user._id)) return res.status(403).json({ ok: false, error: "forbidden" });
-    return res.json({ ok: true, doc });
-  } catch (err) {
-    console.error("getDoc error", err);
-    return res.status(500).json({ ok: false, error: "server_error" });
-  }
-}
+/* -----------------------------
+   Document Chat (RAG)
+----------------------------- */
 
-/**
- * POST /api/documents/:docId/chat
- * body: { question: string, topK?: number }
- */
 async function chatWithDocument(req, res) {
   try {
-    const { question, topK = 4 } = req.body;
-    if (!question) return res.status(400).json({ ok: false, error: "question_required" });
 
-    const doc = getDocument(req.params.docId);
-    if (!doc) return res.status(404).json({ ok: false, error: "not_found" });
-    if (doc.userId !== String(req.user._id)) return res.status(403).json({ ok: false, error: "forbidden" });
+    const { documentId, question } = req.body;
 
-    // embed question
-    const qEmb = await embedText(question);
+    /* ---------- Load user settings ---------- */
 
-    // retrieve topK chunks
-    const hits = queryTopK(req.params.docId, qEmb, topK);
-    const contextText = hits.map((h, i) => `---\nContext ${i+1} (score=${(h.score||0).toFixed(3)}):\n${h.chunk.text}\n`).join("\n");
-
-    // build prompt for LLM (you can modify this prompt template)
-    const prompt = `You are an assistant that answers questions using the provided document context. 
-Do not hallucinate. If the answer is not in the context, say you don't know.
-Context:
-${contextText}
-
-Question:
-${question}
-
-Answer concisely (in 1-3 paragraphs). Also provide which context chunks were used (ids).`;
-
-    // call your existing runLLM adapter to get answer
-    const llmResponse = await runLLM(prompt, { max_tokens: 512 });
-
-    // format response
-    const answerText = (llmResponse && (llmResponse.text || llmResponse.output || llmResponse)) ? (llmResponse.text || llmResponse.output || String(llmResponse)) : "";
-
-    return res.json({
-      ok: true,
-      answer: answerText,
-      raw: llmResponse,
-      sources: hits.map(h => ({ id: h.chunk.id, score: h.score }))
+    const settings = await SystemSettings.findOne({
+      userId: req.user._id,
     });
+
+    const chatSettings = settings?.documentChat || {};
+
+    const provider = chatSettings.provider || "ollama";
+    const model = chatSettings.model || "gemma3:1b";
+    const topK = chatSettings.topK || 3;
+    const temperature = chatSettings.temperature ?? 0.2;
+
+    const agent = { config: { provider } };
+
+    /* ---------- Query vector store ---------- */
+
+    const chunks = await queryDocument(
+      agent,
+      req.user._id,
+      documentId,
+      question,
+      topK
+    );
+
+    const context = chunks.map((c) => c.content).join("\n\n");
+
+    const prompt = `
+You are analyzing a document that may contain structured data such as CSV rows or tables.
+
+Each line may represent an entry such as:
+Name, Role, Company
+
+Extract information carefully from the rows.
+
+If the question asks for a list, extract all matching rows from the provided context.
+
+If the information cannot be found in the context, say:
+"I could not find this information in the document."
+
+CONTEXT:
+${context}
+
+QUESTION:
+${question}
+`;
+
+    /* ---------- Run LLM ---------- */
+
+    const llm = await runLLM(prompt, {
+      provider,
+      model,
+      temperature,
+    });
+
+    res.json({
+      ok: true,
+      answer: llm.text,
+    });
+
   } catch (err) {
-    console.error("chatWithDocument error", err);
-    return res.status(500).json({ ok: false, error: "server_error", detail: err.message });
+
+    console.error("Document query error:", err);
+
+    res.status(500).json({
+      ok: false,
+      error: "query_failed",
+    });
+
   }
 }
 
-// Export multer middleware where needed
+/* -----------------------------
+   Delete Document
+----------------------------- */
+
+async function deleteDocument(req, res) {
+
+  try {
+
+    const { id } = req.params;
+
+    await Document.deleteOne({
+      _id: id,
+      userId: req.user._id
+    });
+
+    await DocumentChunk.deleteMany({
+      documentId: id,
+      userId: req.user._id
+    });
+
+    res.json({ ok: true });
+
+  } catch (err) {
+
+    console.error("Delete document error:", err);
+
+    res.status(500).json({ ok: false });
+
+  }
+
+}
+
+/* -----------------------------
+   Get Single Document
+----------------------------- */
+
+async function getDocument(req, res) {
+
+  try {
+
+    const { id } = req.params;
+
+    const document = await Document.findById(id).lean();
+
+    if (!document) {
+
+      return res.status(404).json({
+        ok: false,
+        error: "Document not found"
+      });
+
+    }
+
+    res.json({
+      ok: true,
+      document
+    });
+
+  } catch (err) {
+
+    console.error("Get document error:", err);
+
+    res.status(500).json({
+      ok: false,
+      error: "fetch_failed"
+    });
+
+  }
+
+}
+
+/* ----------------------------- */
+
 module.exports = {
-  upload, // use as middleware: upload.single('file')
+  upload,
   uploadDocument,
-  listDocs,
-  getDoc,
-  chatWithDocument
+  listDocuments,
+  getDocument,
+  chatWithDocument,
+  deleteDocument
 };

@@ -20,7 +20,8 @@ export type AssistantPage =
   | "schedules"
   | "agents"
   | "logs"
-  | "settings";
+  | "settings"
+  | "documents";
 
 /**
  * Runtime context injected by pages
@@ -106,6 +107,16 @@ export interface AssistantRuntimeContext {
     message: string;
     time: string;
   }[];
+
+  /* -------- Documents -------- */
+  documents?: {
+    id: string;
+    title: string;
+    chunkCount: number;
+    fileType?: string;
+  }[];
+
+  documentCount?: number;
 }
 
 /**
@@ -149,7 +160,7 @@ const AssistantContext = createContext<AssistantContextValue | null>(null);
 export function AssistantProvider({ children }: { children: React.ReactNode }) {
   const [mode, setMode] = useState<AssistantMode>("offline");
   const [context, setContextState] = useState<AssistantRuntimeContext | null>(
-    null
+    null,
   );
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
 
@@ -221,7 +232,7 @@ export function useAssistantContext() {
   const ctx = useContext(AssistantContext);
   if (!ctx) {
     throw new Error(
-      "useAssistantContext must be used inside AssistantProvider"
+      "useAssistantContext must be used inside AssistantProvider",
     );
   }
   return ctx;

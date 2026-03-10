@@ -114,6 +114,8 @@ function getTypeColor(type: string) {
       return "bg-purple-500/20 text-purple-400 border-purple-500/30";
     case "Tool":
       return "bg-green-500/20 text-green-400 border-green-500/30";
+    case "Document":
+      return "bg-amber-500/20 text-amber-400 border-amber-500/30";
     default:
       return "bg-muted text-muted-foreground";
   }
@@ -127,15 +129,67 @@ function normalizeStepType(type: string) {
       return "Delay";
     case "http":
       return "HTTP";
+    case "document_query":
+      return "Document";
+    case "email":
+    case "file":
+    case "browser":
+      return "Tool";
     default:
       return "Tool";
   }
 }
 
 function getStepDescription(step: any) {
-  if (step.prompt) return step.prompt;
-  if (step.url) return step.url;
-  if (step.seconds) return `Wait for ${step.seconds} seconds`;
+  const type = (step.type || "").toLowerCase();
+
+  /* ---------- LLM ---------- */
+  if (step.prompt) {
+    return step.prompt.slice(0, 160);
+  }
+
+  /* ---------- HTTP ---------- */
+  if (step.url && step.method) {
+    return `${step.method} ${step.url}`;
+  }
+
+  /* ---------- DELAY ---------- */
+  if (step.seconds) {
+    return `Wait for ${step.seconds} seconds`;
+  }
+
+  /* ---------- DOCUMENT QUERY ---------- */
+  if (type === "document_query") {
+    if (step.query) {
+      return `Query: ${step.query.slice(0, 160)}`;
+    }
+    return "Document query step";
+  }
+
+  /* ---------- EMAIL TOOL ---------- */
+  if (type === "email") {
+    const to = step.to || "❌ no recipient";
+    const subject = step.subject || "no subject";
+
+    return `Email → ${to} | Subject: ${subject}`;
+  }
+
+  /* ---------- FILE TOOL ---------- */
+  if (type === "file") {
+    const action = step.action || "action";
+    const path = step.path || "❌ path not set";
+
+    return `File ${action} | Path: ${path}`;
+  }
+
+  /* ---------- BROWSER TOOL ---------- */
+  if (type === "browser") {
+    const action = step.action || "action";
+    const url = step.url || "❌ url not set";
+
+    return `Browser ${action} | URL: ${url}`;
+  }
+
   return "No configuration";
 }
 
@@ -156,7 +210,7 @@ export default function WorkflowDetailPage() {
     if (!latestTask?.stepResults) return "pending";
 
     const result = latestTask.stepResults.find(
-      (r: StepResult) => r.stepId === stepId
+      (r: StepResult) => r.stepId === stepId,
     );
 
     if (!result) return "pending";
@@ -181,8 +235,8 @@ export default function WorkflowDetailPage() {
 
         // Normalize task IDs
         type TaskRef = string | { _id: string };
-        const normalizedTaskIds = (workflowData.tasks ?? []).map((t: TaskRef) =>
-          typeof t === "string" ? t : t._id
+        const normalizedTaskIds = (workflowData.tasks ?? []).map(
+          (t: TaskRef) => (typeof t === "string" ? t : t._id),
         );
 
         setWorkflow(workflowData);
@@ -197,7 +251,7 @@ export default function WorkflowDetailPage() {
               headers: {
                 Authorization: "Bearer " + localStorage.getItem("token"),
               },
-            }
+            },
           );
 
           const taskData = await taskRes.json();
@@ -286,7 +340,7 @@ export default function WorkflowDetailPage() {
             Authorization: "Bearer " + localStorage.getItem("token"),
           },
           body: JSON.stringify({ agentId: selectedAgent }),
-        }
+        },
       );
       // alert("Agent assigned successfully");
       addToast({
@@ -316,7 +370,7 @@ export default function WorkflowDetailPage() {
             headers: {
               Authorization: "Bearer " + localStorage.getItem("token"),
             },
-          }
+          },
         );
 
         const data = await res.json();
@@ -382,7 +436,7 @@ export default function WorkflowDetailPage() {
                         Authorization:
                           "Bearer " + localStorage.getItem("token"),
                       },
-                    }
+                    },
                   );
 
                   const data = await res.json();
@@ -442,7 +496,7 @@ export default function WorkflowDetailPage() {
                               <Badge
                                 variant="outline"
                                 className={getTypeColor(
-                                  normalizeStepType(step.type)
+                                  normalizeStepType(step.type),
                                 )}
                               >
                                 {normalizeStepType(step.type)}
@@ -465,7 +519,7 @@ export default function WorkflowDetailPage() {
                       )}
                     </div>
                   );
-                }
+                },
               )}
             </div>
           </Card>
@@ -525,7 +579,7 @@ function CreateTaskModal({
   refreshWorkflow,
 }: CreateTaskModalProps) {
   async function createTask(
-    e: React.FormEvent<HTMLFormElement>
+    e: React.FormEvent<HTMLFormElement>,
   ): Promise<void> {
     e.preventDefault();
 
@@ -551,7 +605,7 @@ function CreateTaskModal({
       refreshWorkflow();
       (
         document.getElementById(
-          "createWorkflowTaskModal"
+          "createWorkflowTaskModal",
         ) as HTMLDialogElement | null
       )?.close();
     }
@@ -585,7 +639,7 @@ function CreateTaskModal({
               onClick={() =>
                 (
                   document.getElementById(
-                    "createWorkflowTaskModal"
+                    "createWorkflowTaskModal",
                   ) as HTMLDialogElement | null
                 )?.close()
               }

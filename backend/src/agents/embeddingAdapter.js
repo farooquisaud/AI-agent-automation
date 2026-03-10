@@ -67,7 +67,7 @@ async function runEmbedding(text, agent) {
     }
 
     /* -------- OPENAI -------- */
-    if (provider === "openai") {
+    if (embeddingProvider === "openai") {
         const openai = new OpenAI({
             apiKey: process.env.OPENAI_API_KEY,
         });
@@ -81,7 +81,7 @@ async function runEmbedding(text, agent) {
     }
 
     /* -------- GEMINI -------- */
-    if (provider === "gemini") {
+    if (embeddingProvider === "gemini") {
         const genAI = new GoogleGenerativeAI(
             process.env.GEMINI_API_KEY
         );
@@ -95,7 +95,7 @@ async function runEmbedding(text, agent) {
         return result.embedding.values;
     }
 
-    throw new Error(`Embedding not supported for provider: ${provider}`);
+    throw new Error(`Embedding not supported for provider: ${embeddingProvider}`);
 }
 
 module.exports = { runEmbedding };

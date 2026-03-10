@@ -47,12 +47,21 @@ type AssistantSettings = {
   model: string | null;
 };
 
+type DocumentChatSettings = {
+  enabled: boolean;
+  provider: AssistantProvider | null;
+  model: string | null;
+  topK: number;
+  temperature: number;
+};
+
 type SystemSettings = {
   worker: WorkerSettings;
   ui: {
     theme: UiTheme;
   };
   assistant: AssistantSettings;
+  documentChat: DocumentChatSettings;
 };
 
 const PROVIDER_LABELS: Record<AssistantProvider, string> = {
@@ -75,6 +84,13 @@ const DEFAULT_SETTINGS: SystemSettings = {
     enabled: false,
     provider: null,
     model: null,
+  },
+  documentChat: {
+    enabled: true,
+    provider: "ollama",
+    model: null,
+    topK: 3,
+    temperature: 0.2,
   },
 };
 
@@ -514,6 +530,224 @@ export default function SettingsPage() {
                             },
                             body: JSON.stringify({
                               assistant: settings.assistant,
+                            }),
+                          });
+                        }}
+                      />
+                    </div>
+                  </Card>
+                </motion.div>
+                {/* Document Chat */}
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                  <Card className="p-6 space-y-4">
+                    <h2 className="text-lg font-semibold">Document Chat</h2>
+
+                    <p className="text-sm text-muted-foreground">
+                      Configure AI used for document question answering.
+                    </p>
+
+                    {/* Enable Switch */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium">Enable Document Chat</div>
+                        <div className="text-xs text-muted-foreground">
+                          Must select provider below
+                        </div>
+                      </div>
+
+                      <Switch
+                        checked={!!settings.documentChat?.enabled}
+                        disabled={!settings.documentChat?.provider}
+                        onCheckedChange={async (checked) => {
+                          const updated = {
+                            ...settings,
+                            documentChat: {
+                              ...settings.documentChat,
+                              enabled: checked,
+                            },
+                          };
+
+                          setSettings(updated);
+
+                          await fetch("http://localhost:5000/api/settings", {
+                            method: "PUT",
+                            headers: {
+                              "Content-Type": "application/json",
+                              Authorization:
+                                "Bearer " + localStorage.getItem("token"),
+                            },
+                            body: JSON.stringify({
+                              documentChat: updated.documentChat,
+                            }),
+                          });
+                        }}
+                      />
+                    </div>
+
+                    {/* Provider Select */}
+                    <div>
+                      <Label className="mb-2 block">Provider</Label>
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="w-full border rounded-md px-3 py-2 bg-background text-left flex items-center justify-between">
+                            <span>
+                              {settings.documentChat?.provider
+                                ? PROVIDER_LABELS[
+                                    settings.documentChat
+                                      .provider as AssistantProvider
+                                  ]
+                                : "Select Provider"}
+                            </span>
+
+                            <ChevronRightIcon className="rotate-90 size-4 opacity-60" />
+                          </button>
+                        </DropdownMenuTrigger>
+
+                        <DropdownMenuContent className="w-56">
+                          <DropdownMenuLabel>Select Provider</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+
+                          <DropdownMenuRadioGroup
+                            value={settings.documentChat?.provider ?? ""}
+                            onValueChange={async (value) => {
+                              const provider: AssistantProvider | null =
+                                value === ""
+                                  ? null
+                                  : (value as AssistantProvider);
+
+                              const updated = {
+                                ...settings,
+                                documentChat: {
+                                  ...settings.documentChat,
+                                  provider,
+                                },
+                              };
+
+                              setSettings(updated);
+
+                              await fetch(
+                                "http://localhost:5000/api/settings",
+                                {
+                                  method: "PUT",
+                                  headers: {
+                                    "Content-Type": "application/json",
+                                    Authorization:
+                                      "Bearer " + localStorage.getItem("token"),
+                                  },
+                                  body: JSON.stringify({
+                                    documentChat: updated.documentChat,
+                                  }),
+                                },
+                              );
+                            }}
+                          >
+                            {Object.entries(availableProviders).map(
+                              ([key, available]) =>
+                                available && (
+                                  <DropdownMenuRadioItem key={key} value={key}>
+                                    {PROVIDER_LABELS[key as AssistantProvider]}
+                                  </DropdownMenuRadioItem>
+                                ),
+                            )}
+                          </DropdownMenuRadioGroup>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    {/* Model Input */}
+                    <div>
+                      <Label className="mb-2 block">
+                        Model (Optional Override)
+                      </Label>
+
+                      <Input
+                        placeholder="Leave empty for default"
+                        value={settings.documentChat?.model ?? ""}
+                        onChange={(e) =>
+                          setSettings((prev) => ({
+                            ...prev,
+                            documentChat: {
+                              ...prev.documentChat,
+                              model: e.target.value || null,
+                            },
+                          }))
+                        }
+                        onBlur={async () => {
+                          await fetch("http://localhost:5000/api/settings", {
+                            method: "PUT",
+                            headers: {
+                              "Content-Type": "application/json",
+                              Authorization:
+                                "Bearer " + localStorage.getItem("token"),
+                            },
+                            body: JSON.stringify({
+                              documentChat: settings.documentChat,
+                            }),
+                          });
+                        }}
+                      />
+                    </div>
+
+                    {/* Top-K */}
+                    <div>
+                      <Label>Top-K Retrieval</Label>
+
+                      <Input
+                        type="number"
+                        value={settings.documentChat.topK}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            documentChat: {
+                              ...settings.documentChat,
+                              topK: Number(e.target.value),
+                            },
+                          })
+                        }
+                        onBlur={async () => {
+                          await fetch("http://localhost:5000/api/settings", {
+                            method: "PUT",
+                            headers: {
+                              "Content-Type": "application/json",
+                              Authorization:
+                                "Bearer " + localStorage.getItem("token"),
+                            },
+                            body: JSON.stringify({
+                              documentChat: settings.documentChat,
+                            }),
+                          });
+                        }}
+                      />
+                    </div>
+
+                    {/* Temperature */}
+                    <div>
+                      <Label>Temperature</Label>
+
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={settings.documentChat.temperature}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            documentChat: {
+                              ...settings.documentChat,
+                              temperature: Number(e.target.value),
+                            },
+                          })
+                        }
+                        onBlur={async () => {
+                          await fetch("http://localhost:5000/api/settings", {
+                            method: "PUT",
+                            headers: {
+                              "Content-Type": "application/json",
+                              Authorization:
+                                "Bearer " + localStorage.getItem("token"),
+                            },
+                            body: JSON.stringify({
+                              documentChat: settings.documentChat,
                             }),
                           });
                         }}

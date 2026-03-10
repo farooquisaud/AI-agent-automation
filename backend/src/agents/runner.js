@@ -117,6 +117,7 @@ async function runWorkerLoop() {
         time: now.toLocaleTimeString("en-US", { timeStyle: "short" }),
         workflow,
         taskId: task._id,
+        userId: task.userId,
         results: [],
       };
 

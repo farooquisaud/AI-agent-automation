@@ -35,6 +35,22 @@ const SystemSettingsSchema = new mongoose.Schema(
       },
       model: { type: String, default: null },
     },
+    
+    documentChat: {
+      enabled: { type: Boolean, default: true },
+
+      provider: {
+        type: String,
+        enum: ["ollama", "openai", "groq", "gemini", "huggingface"],
+        default: "ollama",
+      },
+
+      model: { type: String, default: null },
+
+      topK: { type: Number, default: 3 },
+
+      temperature: { type: Number, default: 0.2 },
+    },
   },
   { timestamps: true }
 );

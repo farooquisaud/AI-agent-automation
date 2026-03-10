@@ -44,6 +44,7 @@ async function updateSettings(req, res) {
     if (req.body.ui) update.ui = req.body.ui;
     if (req.body.scheduler) update.scheduler = req.body.scheduler;
     if (req.body.assistant) update.assistant = req.body.assistant;
+    if (req.body.documentChat) update.documentChat = req.body.documentChat;
 
     if (req.body.assistant?.provider) {
       const provider = req.body.assistant.provider;

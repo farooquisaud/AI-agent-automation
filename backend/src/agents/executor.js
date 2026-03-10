@@ -362,6 +362,65 @@ Do not say you lack memory.`;
       };
     }
 
+    // ----- DOCUMENT QUERY -----
+    if (step.type === "document_query") {
+
+      const { queryDocument } = require("../services/documentService");
+
+      const documentId = step.documentId;
+      const query = interpolate(step.query || "", context);
+
+      const chunks = await queryDocument(
+        agent,
+        context.userId,
+        documentId,
+        query,
+        step.topK || 3
+      );
+
+      let contextText = chunks
+        .map((c, i) => `Chunk ${i + 1}:\n${c.content}`)
+        .join("\n\n");
+
+      // prevent very large prompts
+      const MAX_CONTEXT = 3000;
+      if (contextText.length > MAX_CONTEXT) {
+        contextText = contextText.slice(0, MAX_CONTEXT);
+      }
+
+      const finalPrompt = `
+SYSTEM INSTRUCTION:
+You are answering questions using retrieved document context.
+
+Rules:
+- Only use the provided document context.
+- If the answer is not in the context, say "The document does not contain that information."
+- Do not hallucinate.
+
+DOCUMENT CONTEXT:
+${contextText}
+
+QUESTION:
+${query}
+`;
+
+      const llmRes = await runLLM(finalPrompt, {
+        provider: agent?.config?.provider,
+        model: agent?.config?.model,
+        temperature: agent?.config?.temperature
+      });
+
+      return {
+        stepId: step.stepId,
+        type: "document_query",
+        tool: "document",
+        input: query,
+        output: llmRes.text,
+        success: true,
+        timestamp: new Date()
+      };
+    }
+
     // unknown step type
     return {
       stepId: step.stepId || null,

@@ -1,21 +1,30 @@
-// backend/src/routes/document.routes.js
-const router = require("express").Router();
+const express = require("express");
+const router = express.Router();
+
 const auth = require("../middleware/auth.middleware");
-const docCtrl = require("../controllers/document.controller");
 
-// require authentication for documents
-router.use(auth);
+const {
+  upload,
+  uploadDocument,
+  chatWithDocument,
+  getDocument,
+  deleteDocument,
+  listDocuments
+} = require("../controllers/document.controller");
 
-// Upload: multipart form field name "file"
-router.post("/upload", docCtrl.upload.single("file"), docCtrl.uploadDocument);
+/* Upload document */
+router.post("/upload", auth, upload.single("file"), uploadDocument);
 
-// List docs for user
-router.get("/", docCtrl.listDocs);
+/* List user documents */
+router.get("/", auth, listDocuments);
 
-// Get single doc metadata
-router.get("/:docId", docCtrl.getDoc);
+/* Chat with a document */
+router.post("/chat", auth, chatWithDocument);
 
-// Chat with doc
-router.post("/:docId/chat", docCtrl.chatWithDocument);
+/* Delete document */
+router.delete("/:id", auth, deleteDocument);
+
+/* Get document info */
+router.get("/:id", auth, getDocument);
 
 module.exports = router;

@@ -73,6 +73,24 @@ export function AssistantContextPreview() {
               <ContextItem label="Model" value={context.model} />
             </Section>
           )}
+
+          {/* Documents */}
+          {context.documents && context.documents.length > 0 && (
+            <Section title="Documents">
+              <ContextItem
+                label="Total"
+                value={String(context.documentCount)}
+              />
+
+              {context.documents.slice(0, 3).map((doc) => (
+                <ContextItem
+                  key={doc.id}
+                  label={doc.title}
+                  value={`${doc.chunkCount} chunks`}
+                />
+              ))}
+            </Section>
+          )}
         </div>
       )}
     </div>
@@ -121,7 +139,7 @@ function ContextItem({
           "rounded-md bg-background/60 px-2 py-1.5 text-xs text-foreground",
           "break-words whitespace-pre-wrap",
           mono && "font-mono",
-          multiline && "max-h-32 overflow-y-auto"
+          multiline && "max-h-32 overflow-y-auto",
         )}
       >
         {value}

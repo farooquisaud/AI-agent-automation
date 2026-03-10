@@ -26,7 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 
 /* ---------------- TYPES ---------------- */
 
-type StepType = "LLM" | "HTTP" | "Delay" | "Tool";
+type StepType = "LLM" | "HTTP" | "Delay" | "Tool" | "Document";
 type ToolType = "email" | "file" | "browser";
 
 type WorkflowStep = {
@@ -63,6 +63,11 @@ type WorkflowStep = {
 
   // Browser
   code?: string;
+
+  // Document RAG
+  documentId?: string;
+  query?: string;
+  topK?: number;
 };
 
 type BackendStep = {
@@ -114,6 +119,8 @@ function getTypeColor(type: StepType) {
       return "bg-purple-500/20 text-purple-400 border-purple-500/30";
     case "Tool":
       return "bg-green-500/20 text-green-400 border-green-500/30";
+    case "Document":
+      return "bg-orange-500/20 text-orange-400 border-orange-500/30";
     default:
       return "bg-muted text-muted-foreground";
   }
@@ -121,6 +128,7 @@ function getTypeColor(type: StepType) {
 
 function summarizeStep(step: WorkflowStep) {
   switch (step.type) {
+    /* ---------- LLM ---------- */
     case "LLM":
       return step.prompt
         ? `Prompt: ${step.prompt.slice(0, 120)}${
@@ -128,6 +136,7 @@ function summarizeStep(step: WorkflowStep) {
           }`
         : "No prompt configured";
 
+    /* ---------- HTTP ---------- */
     case "HTTP": {
       const method = step.method ?? "GET";
       const url = step.url?.trim() || "❌ not set";
@@ -149,11 +158,48 @@ function summarizeStep(step: WorkflowStep) {
       );
     }
 
+    /* ---------- DELAY ---------- */
     case "Delay":
       return `Delay for ${step.delay ?? 0} seconds`;
 
-    case "Tool":
+    /* ---------- DOCUMENT QUERY ---------- */
+    case "Document":
+      return step.query
+        ? `Query: ${step.query.slice(0, 120)}${
+            step.query.length > 120 ? "…" : ""
+          }`
+        : "No query configured";
+
+    /* ---------- TOOL ---------- */
+    case "Tool": {
+      if (!step.tool) return "Tool not selected";
+
+      /* EMAIL TOOL */
+      if (step.tool === "email") {
+        const to = step.to || "❌ no recipient";
+        const subject = step.subject || "no subject";
+
+        return `Email → ${to} | Subject: ${subject}`;
+      }
+
+      /* FILE TOOL */
+      if (step.tool === "file") {
+        const action = step.action || "action";
+        const path = step.path || "❌ path not set";
+
+        return `File ${action} | Path: ${path}`;
+      }
+
+      /* BROWSER TOOL */
+      if (step.tool === "browser") {
+        const action = step.action || "action";
+        const url = step.url || "❌ url not set";
+
+        return `Browser ${action} | URL: ${url}`;
+      }
+
       return "Tool execution step";
+    }
 
     default:
       return "Unknown step";
@@ -168,6 +214,7 @@ export default function WorkflowBuilderPage() {
   const [steps, setSteps] = useState<WorkflowStep[]>([]);
   const [workflowName, setWorkflowName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [documents, setDocuments] = useState<any[]>([]);
   const { addToast } = useToast();
   const { setContext, clearContext } = useAssistantContext();
 
@@ -196,9 +243,13 @@ export default function WorkflowBuilderPage() {
             ? "Delay"
             : s.type === "http"
               ? "HTTP"
-              : s.type === "file" || s.type === "email" || s.type === "browser"
-                ? "Tool"
-                : "LLM",
+              : s.type === "document_query"
+                ? "Document"
+                : s.type === "file" ||
+                    s.type === "email" ||
+                    s.type === "browser"
+                  ? "Tool"
+                  : "LLM",
 
         // LLM
         useMemory: (s as any).useMemory ?? false,
@@ -226,6 +277,11 @@ export default function WorkflowBuilderPage() {
         path: (s as any).path ?? "",
         content: (s as any).content ?? "",
         code: (s as any).code ?? "",
+
+        // Document
+        documentId: (s as any).documentId ?? "",
+        query: (s as any).query ?? "",
+        topK: (s as any).topK ?? 4,
       }));
 
       setSteps(normalizedSteps);
@@ -260,6 +316,28 @@ export default function WorkflowBuilderPage() {
       clearContext();
     };
   }, [id, workflowName, steps.length]);
+
+  useEffect(() => {
+    async function fetchDocs() {
+      try {
+        const res = await fetch("http://localhost:5000/api/documents", {
+          headers: {
+            Authorization: "Bearer " + localStorage.getItem("token"),
+          },
+        });
+
+        const data = await res.json();
+
+        if (data.ok) {
+          setDocuments(data.documents || []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch documents", err);
+      }
+    }
+
+    fetchDocs();
+  }, []);
 
   function addStep() {
     setSteps((prev) => [
@@ -307,6 +385,17 @@ export default function WorkflowBuilderPage() {
             method: s.method ?? "GET",
             url: s.url ?? "",
             body: s.body ?? "",
+          };
+        }
+
+        if (s.type === "Document") {
+          return {
+            stepId: s.id,
+            name: s.name,
+            type: "document_query",
+            documentId: s.documentId,
+            query: s.query,
+            topK: s.topK ?? 4,
           };
         }
 
@@ -538,6 +627,9 @@ export default function WorkflowBuilderPage() {
                               <SelectItem value="HTTP">HTTP Request</SelectItem>
                               <SelectItem value="Delay">Delay</SelectItem>
                               <SelectItem value="Tool">Tool</SelectItem>
+                              <SelectItem value="Document">
+                                Document Query
+                              </SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -836,6 +928,58 @@ export default function WorkflowBuilderPage() {
                                 onChange={(e) =>
                                   updateStep(step.id, {
                                     body: e.target.value,
+                                  })
+                                }
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {/* DOCUMENT */}
+                        {step.type === "Document" && (
+                          <>
+                            <div>
+                              <Label>Document</Label>
+                              <Select
+                                value={step.documentId}
+                                onValueChange={(v) =>
+                                  updateStep(step.id, { documentId: v })
+                                }
+                              >
+                                <SelectTrigger className="mt-1.5">
+                                  <SelectValue placeholder="Select document" />
+                                </SelectTrigger>
+
+                                <SelectContent>
+                                  {documents.map((doc) => (
+                                    <SelectItem key={doc._id} value={doc._id}>
+                                      {doc.title || "Untitled"}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div>
+                              <Label>Query</Label>
+                              <Textarea
+                                className="mt-1.5 min-h-[100px]"
+                                value={step.query ?? ""}
+                                onChange={(e) =>
+                                  updateStep(step.id, { query: e.target.value })
+                                }
+                              />
+                            </div>
+
+                            <div>
+                              <Label>Top K Chunks</Label>
+                              <Input
+                                type="number"
+                                className="mt-1.5"
+                                value={step.topK ?? 4}
+                                onChange={(e) =>
+                                  updateStep(step.id, {
+                                    topK: Number(e.target.value),
                                   })
                                 }
                               />
