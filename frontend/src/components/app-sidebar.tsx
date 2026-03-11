@@ -15,7 +15,7 @@ import { UserProfileMenu } from "@/components/user-profile-menu";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
-import { FileText } from "lucide-react";
+import { Brain, FileText } from "lucide-react";
 
 const navItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -24,6 +24,7 @@ const navItems = [
   { name: "Tasks", href: "/tasks", icon: ListChecks },
   { name: "Agents", href: "/agents", icon: Bot },
   { name: "Documents", href: "/documents", icon: FileText },
+  { name: "Memory", href: "/memory", icon: Brain },
   { name: "Logs", href: "/logs", icon: ScrollText },
 ];
 
