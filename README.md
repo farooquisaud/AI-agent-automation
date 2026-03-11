@@ -36,7 +36,6 @@
 2. Running a workflow creates a **Task** (manual or scheduled)
 3. An **Agent** executes each step **deterministically**
 4. Every step produces:
-
    - input
    - output
    - success / failure
@@ -95,7 +94,6 @@ If you like tools such as **n8n**, **Zapier**, or **Temporal** — but want some
 - Visual workflow builder
 - Ordered, sequential steps
 - Supported step types:
-
   - **LLM** — reasoning & generation
   - **HTTP** — API calls
   - **Tool** — internal actions
@@ -110,7 +108,6 @@ Each workflow run becomes a **Task** with full traceability.
 - Cron-based schedules
 - Automatic task creation
 - Ideal for:
-
   - Monitoring
   - Reports
   - Background automation
@@ -244,70 +241,153 @@ Frontend → `http://localhost:3000`
 
 ## 🐳 Docker Deployment
 
+Run the entire platform (MongoDB, backend API, worker, and frontend) using Docker.
+
+---
+
 ### Prerequisites
 
-- [Docker](https://docker.com)
-- [Docker Compose](https://docs.docker.com/compose/)
+- Docker Desktop: [https://www.docker.com/products/docker-desktop/](https://www.docker.com/products/docker-desktop/)
+- Docker Compose (included with Docker Desktop)
 
-### Quick Start
+Verify installation:
+
+```bash
+docker --version
+docker compose version
+```
+
+---
+
+### 🚀 Quick Start
 
 ```bash
 cd infra
+
+# Copy environment configuration
 cp .env.example .env
-# Edit .env with your values (at minimum, set JWT_SECRET)
-docker-compose up -d --build
 
-# Initialize MongoDB replica set (required for first run)
-docker exec -it infra-mongo-1 mongosh --eval "rs.initiate()"
+# Edit .env (at minimum set JWT_SECRET)
 
-# Restart backend to connect
-docker restart infra-backend-1
+# Build and start all services
+docker compose up --build
 ```
 
-### Services
+After startup open:
 
-| Service | URL | Description |
-|---------|-----|-------------|
-| Frontend | http://localhost:3000 | Next.js UI |
-| Backend | http://localhost:5000 | Express API |
-| MongoDB | localhost:27017 | Database |
+```
+http://localhost:3000
+```
 
-### Configuration
+---
 
-Edit `infra/.env` with your settings:
+### 🧩 Services
+
+| Service     | URL                                            | Description            |
+| ----------- | ---------------------------------------------- | ---------------------- |
+| Frontend    | [http://localhost:3000](http://localhost:3000) | Next.js web interface  |
+| Backend API | [http://localhost:5000](http://localhost:5000) | Express API server     |
+| MongoDB     | localhost:27017                                | Database               |
+| Worker      | internal                                       | Executes workflow jobs |
+
+Startup order:
+
+```
+MongoDB
+↓
+Mongo Replica Init
+↓
+Backend API
+↓
+Worker
+↓
+Frontend
+```
+
+MongoDB replica sets are initialized automatically during startup.
+
+---
+
+### ⚙ Configuration
+
+Edit the environment file:
+
+```
+infra/.env
+```
+
+Example configuration:
 
 ```bash
 MONGO_URI=mongodb://mongo:27017/ai-agent
 JWT_SECRET=your-secure-random-string
-# Add LLM API keys as needed
+
+# LLM Providers
 GROQ_API_KEY=
 OPENAI_API_KEY=
-```
+GEMINI_API_KEY=
+HF_API_KEY=
 
-### With Existing Nginx
-
-If you already have nginx configured, proxy to:
-
-- `/api` → `http://localhost:5000`
-- `/` → `http://localhost:3000`
-
-### Commands
-
-```bash
-# Start services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop services
-docker-compose down
-
-# Rebuild after code changes
-docker-compose up --build
+# Optional local models
+OLLAMA_HOST=http://host.docker.internal:11434
 ```
 
 ---
+
+### 🛠 Common Commands
+
+### Start services
+
+```bash
+docker compose up -d
+```
+
+### View logs
+
+```bash
+docker compose logs -f
+```
+
+### Stop services
+
+```bash
+docker compose down
+```
+
+### Rebuild after code changes
+
+```bash
+docker compose up --build
+```
+
+### Stop and remove containers + volumes
+
+```bash
+docker compose down -v
+```
+
+---
+
+### 🌐 Using With Existing Nginx
+
+If you already run an nginx reverse proxy:
+
+```
+/api  → http://localhost:5000
+/     → http://localhost:3000
+```
+
+---
+
+### 💡 Tip
+
+For development you usually only need:
+
+```bash
+docker compose up
+```
+
+Docker will automatically build images and start all services.
 
 ## 📂 Repository Structure
 
