@@ -25,7 +25,7 @@ const AgentMemorySchema = new mongoose.Schema({
     },
     embeddingProvider: {
         type: String,
-        enum: ["ollama", "openai", "gemini", "huggingface"],
+        enum: ["ollama", "openai", "gemini", "huggingface", "groq"],
         default: null
     },
     embeddingModel: { type: String, default: null },

@@ -12,6 +12,7 @@ const documentRoutes = require("./routes/document.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
 const settingsRoutes = require("./routes/settings.routes");
 const systemRoutes = require("./routes/system.routes");
+const memoryRoutes = require("./routes/memory.routes");
 const assistantRoutes = require("./routes/assistant.routes");
 require("dotenv").config();
 
@@ -37,6 +38,7 @@ app.use("/webhook", webhookPublicRoutes);
 app.use("/api/logs", logRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/system", systemRoutes);
+app.use("/api/memory", memoryRoutes);
 app.use("/api/assistant", assistantRoutes);
 
 // generic 404

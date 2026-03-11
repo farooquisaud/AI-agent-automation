@@ -30,7 +30,10 @@ async function storeMemory(agent, content, metadata = {}) {
         agentId: agent._id,
         content,
         embedding,
-        metadata
+        metadata,
+
+        embeddingProvider: agent?.config?.provider || null,
+        embeddingModel: agent?.config?.embeddingModel || agent?.config?.model || null
     });
 
     /* -------- Retention Policy -------- */
@@ -60,7 +63,7 @@ async function storeMemory(agent, content, metadata = {}) {
 }
 
 /* -------- Retrieve Top-K -------- */
-async function retrieveMemory(agent, queryText, topK = 5, minScore = 0.75) {
+async function retrieveMemory(agent, queryText, topK = 5, minScore = 0.45) {
     const queryEmbedding = await runEmbedding(queryText, agent);
 
     const memories = await AgentMemory.find({
@@ -73,7 +76,6 @@ async function retrieveMemory(agent, queryText, topK = 5, minScore = 0.75) {
             ...m,
             score: cosineSimilarity(queryEmbedding, m.embedding)
         }))
-        .filter(m => m.score >= minScore)
         .sort((a, b) => b.score - a.score)
         .slice(0, topK);
 

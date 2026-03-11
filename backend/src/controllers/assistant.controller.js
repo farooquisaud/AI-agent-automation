@@ -51,7 +51,7 @@ async function sendChat(provider, modelOverride, messages) {
   try {
     switch (provider) {
       case "ollama": {
-        const model = modelOverride || "gemma3:1b";
+        const model = modelOverride || "gemma3:4b";
 
         const response = await axios.post(
           `${process.env.OLLAMA_HOST}/api/chat`,

@@ -95,7 +95,7 @@ async function uploadDocument(req, res) {
     const chatSettings = settings?.documentChat || {};
 
     const provider = chatSettings.provider || "ollama";
-    const model = chatSettings.model || "gemma3:1b";
+    const model = chatSettings.model || "gemma3:4b";
     const topK = chatSettings.topK || 3;
     const temperature = chatSettings.temperature ?? 0.2;
 
@@ -155,7 +155,7 @@ async function chatWithDocument(req, res) {
     const chatSettings = settings?.documentChat || {};
 
     const provider = chatSettings.provider || "ollama";
-    const model = chatSettings.model || "gemma3:1b";
+    const model = chatSettings.model || "gemma3:4b";
     const topK = chatSettings.topK || 3;
     const temperature = chatSettings.temperature ?? 0.2;
 

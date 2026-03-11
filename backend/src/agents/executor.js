@@ -50,8 +50,14 @@ ${memoryText}
 USER QUESTION:
 ${prompt}
 
-Answer strictly based on MEMORY if relevant.
+Use the MEMORY section to answer the question.
+
+If the answer appears in MEMORY, respond using it.
+
+If MEMORY contains the project name or related information, return it clearly.
 Do not say you lack memory.`;
+
+          console.log("Retrieved memories:", memories.length);
         }
       }
 
