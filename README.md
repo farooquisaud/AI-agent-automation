@@ -242,6 +242,73 @@ Frontend → `http://localhost:3000`
 
 ---
 
+## 🐳 Docker Deployment
+
+### Prerequisites
+
+- [Docker](https://docker.com)
+- [Docker Compose](https://docs.docker.com/compose/)
+
+### Quick Start
+
+```bash
+cd infra
+cp .env.example .env
+# Edit .env with your values (at minimum, set JWT_SECRET)
+docker-compose up -d --build
+
+# Initialize MongoDB replica set (required for first run)
+docker exec -it infra-mongo-1 mongosh --eval "rs.initiate()"
+
+# Restart backend to connect
+docker restart infra-backend-1
+```
+
+### Services
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| Frontend | http://localhost:3000 | Next.js UI |
+| Backend | http://localhost:5000 | Express API |
+| MongoDB | localhost:27017 | Database |
+
+### Configuration
+
+Edit `infra/.env` with your settings:
+
+```bash
+MONGO_URI=mongodb://mongo:27017/ai-agent
+JWT_SECRET=your-secure-random-string
+# Add LLM API keys as needed
+GROQ_API_KEY=
+OPENAI_API_KEY=
+```
+
+### With Existing Nginx
+
+If you already have nginx configured, proxy to:
+
+- `/api` → `http://localhost:5000`
+- `/` → `http://localhost:3000`
+
+### Commands
+
+```bash
+# Start services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+
+# Rebuild after code changes
+docker-compose up --build
+```
+
+---
+
 ## 📂 Repository Structure
 
 ```
