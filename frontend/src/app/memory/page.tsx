@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AuthGuard } from "@/components/auth/auth-guard";
+import { apiUrl } from "@/lib/api";
 
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -64,7 +65,7 @@ export default function MemoryPage() {
     setLoading(true);
 
     const url =
-      "http://localhost:5000/api/memory?search=" + encodeURIComponent(search);
+      apiUrl("/memory?search=") + encodeURIComponent(search);
 
     const res = await fetch(url, {
       headers: {
@@ -90,7 +91,7 @@ export default function MemoryPage() {
   }, [selectedMemory]);
 
   async function deleteMemory(id: string) {
-    await fetch(`http://localhost:5000/api/memory/${id}`, {
+    await fetch(apiUrl(`/memory/${id}`), {
       method: "DELETE",
       headers: {
         Authorization: "Bearer " + localStorage.getItem("token"),
@@ -516,7 +517,7 @@ export default function MemoryPage() {
                     className="w-full"
                     onClick={async () => {
                       await fetch(
-                        `http://localhost:5000/api/memory/${selectedMemory._id}`,
+                        apiUrl(`/memory/${selectedMemory._id}`),
                         {
                           method: "DELETE",
                           headers: {

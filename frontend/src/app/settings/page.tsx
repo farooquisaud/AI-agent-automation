@@ -23,6 +23,7 @@ import {
   DropdownMenuContent,
   DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
+import { apiUrl } from "@/lib/api";
 
 /* -------------------------
    Types
@@ -160,7 +161,7 @@ export default function SettingsPage() {
   ------------------------- */
   async function loadSettings() {
     try {
-      const res = await fetch("http://localhost:5000/api/settings", {
+      const res = await fetch(apiUrl("/settings"), {
         headers: {
           Authorization: "Bearer " + localStorage.getItem("token"),
         },
@@ -200,7 +201,7 @@ export default function SettingsPage() {
   }
 
   async function loadEnv() {
-    const res = await fetch("http://localhost:5000/api/system/env", {
+    const res = await fetch(apiUrl("/system/env"), {
       headers: {
         Authorization: "Bearer " + localStorage.getItem("token"),
       },
@@ -225,7 +226,7 @@ export default function SettingsPage() {
     try {
       setSavingWorker(true);
 
-      await fetch("http://localhost:5000/api/settings", {
+      await fetch(apiUrl("/settings"), {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -256,7 +257,7 @@ export default function SettingsPage() {
       ui: { theme: value },
     }));
 
-    await fetch("http://localhost:5000/api/settings", {
+    await fetch(apiUrl("/settings"), {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -418,7 +419,7 @@ export default function SettingsPage() {
 
                           setSettings(updated);
 
-                          await fetch("http://localhost:5000/api/settings", {
+                          await fetch(apiUrl("/settings"), {
                             method: "PUT",
                             headers: {
                               "Content-Type": "application/json",
@@ -475,7 +476,7 @@ export default function SettingsPage() {
                               setSettings(updated);
 
                               await fetch(
-                                "http://localhost:5000/api/settings",
+                                apiUrl("/settings"),
                                 {
                                   method: "PUT",
                                   headers: {
@@ -521,7 +522,7 @@ export default function SettingsPage() {
                           }))
                         }
                         onBlur={async () => {
-                          await fetch("http://localhost:5000/api/settings", {
+                          await fetch(apiUrl("/settings"), {
                             method: "PUT",
                             headers: {
                               "Content-Type": "application/json",
@@ -569,7 +570,7 @@ export default function SettingsPage() {
 
                           setSettings(updated);
 
-                          await fetch("http://localhost:5000/api/settings", {
+                          await fetch(apiUrl("/settings"), {
                             method: "PUT",
                             headers: {
                               "Content-Type": "application/json",
@@ -627,7 +628,7 @@ export default function SettingsPage() {
                               setSettings(updated);
 
                               await fetch(
-                                "http://localhost:5000/api/settings",
+                                apiUrl("/settings"),
                                 {
                                   method: "PUT",
                                   headers: {
@@ -674,7 +675,7 @@ export default function SettingsPage() {
                           }))
                         }
                         onBlur={async () => {
-                          await fetch("http://localhost:5000/api/settings", {
+                          await fetch(apiUrl("/settings"), {
                             method: "PUT",
                             headers: {
                               "Content-Type": "application/json",
@@ -706,7 +707,7 @@ export default function SettingsPage() {
                           })
                         }
                         onBlur={async () => {
-                          await fetch("http://localhost:5000/api/settings", {
+                          await fetch(apiUrl("/settings"), {
                             method: "PUT",
                             headers: {
                               "Content-Type": "application/json",
@@ -739,7 +740,7 @@ export default function SettingsPage() {
                           })
                         }
                         onBlur={async () => {
-                          await fetch("http://localhost:5000/api/settings", {
+                          await fetch(apiUrl("/settings"), {
                             method: "PUT",
                             headers: {
                               "Content-Type": "application/json",

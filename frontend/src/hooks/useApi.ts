@@ -2,6 +2,7 @@
 
 import { useContext, useEffect, useRef, useState, useCallback } from "react";
 import { AuthContext } from "@/context/AuthContext";
+import { apiUrl } from "@/lib/api";
 
 type ApiState<T> = {
   data: T | null;
@@ -31,7 +32,7 @@ export function useApi<T>(endpoint: string): ApiState<T> {
       setLoading(true);
       setError(null);
 
-      const res = await fetch(`http://localhost:5000/api${endpoint}`, {
+      const res = await fetch(apiUrl(`${endpoint}`), {
         headers: { Authorization: `Bearer ${token}` },
       });
 

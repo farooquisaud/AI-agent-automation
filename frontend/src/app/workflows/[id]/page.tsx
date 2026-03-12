@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { apiUrl } from "@/lib/api";
 
 interface CreateTaskModalProps {
   workflowId: string;
@@ -223,7 +224,7 @@ export default function WorkflowDetailPage() {
   /** Fetch workflow details */
   async function fetchWorkflow() {
     try {
-      const res = await fetch(`http://localhost:5000/api/workflows/${id}`, {
+      const res = await fetch(apiUrl(`/workflows/${id}`), {
         headers: {
           Authorization: "Bearer " + localStorage.getItem("token"),
         },
@@ -246,7 +247,7 @@ export default function WorkflowDetailPage() {
         // Fetch latest task details
         if (sortedTaskIds.length > 0) {
           const taskRes = await fetch(
-            `http://localhost:5000/api/tasks/${sortedTaskIds[0]}`,
+            apiUrl(`/tasks/${sortedTaskIds[0]}`),
             {
               headers: {
                 Authorization: "Bearer " + localStorage.getItem("token"),
@@ -291,7 +292,7 @@ export default function WorkflowDetailPage() {
   /** Fetch all agents */
   async function fetchAgents() {
     try {
-      const res = await fetch(`http://localhost:5000/api/agents`, {
+      const res = await fetch(apiUrl(`/agents`), {
         headers: { Authorization: "Bearer " + localStorage.getItem("token") },
       });
 
@@ -332,7 +333,7 @@ export default function WorkflowDetailPage() {
 
     try {
       await fetch(
-        `http://localhost:5000/api/workflows/${workflow._id}/assign-agent`,
+        apiUrl(`/workflows/${workflow._id}/assign-agent`),
         {
           method: "PUT",
           headers: {
@@ -365,7 +366,7 @@ export default function WorkflowDetailPage() {
     const interval = setInterval(async () => {
       try {
         const res = await fetch(
-          `http://localhost:5000/api/tasks/${latestTask._id}`,
+          apiUrl(`/tasks/${latestTask._id}`),
           {
             headers: {
               Authorization: "Bearer " + localStorage.getItem("token"),
@@ -429,7 +430,7 @@ export default function WorkflowDetailPage() {
               <Button
                 onClick={async () => {
                   const res = await fetch(
-                    `http://localhost:5000/api/workflows/${workflow._id}/run`,
+                    apiUrl(`/workflows/${workflow._id}/run`),
                     {
                       method: "POST",
                       headers: {
@@ -535,7 +536,7 @@ function TaskItem({ taskId }: { taskId: string }) {
 
   async function fetchTask(): Promise<void> {
     try {
-      const res = await fetch(`http://localhost:5000/api/tasks/${taskId}`, {
+      const res = await fetch(apiUrl(`/tasks/${taskId}`), {
         headers: {
           Authorization: "Bearer " + localStorage.getItem("token"),
         },
@@ -587,7 +588,7 @@ function CreateTaskModal({
     const name = (form.elements.namedItem("name") as HTMLInputElement).value;
     const text = (form.elements.namedItem("text") as HTMLTextAreaElement).value;
 
-    const res = await fetch(`http://localhost:5000/api/tasks`, {
+    const res = await fetch(apiUrl(`/tasks`), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

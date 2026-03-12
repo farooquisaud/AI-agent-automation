@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Send, Bot, User } from "lucide-react";
 import { useAssistantContext } from "@/context/assistant-context";
+import { apiUrl } from "@/lib/api";
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -40,7 +41,7 @@ export default function DocumentChatPage() {
   useEffect(() => {
     async function loadDocument() {
       try {
-        const res = await fetch(`http://localhost:5000/api/documents/${id}`, {
+        const res = await fetch(apiUrl(`/documents/${id}`), {
           headers: {
             Authorization: "Bearer " + localStorage.getItem("token"),
           },
@@ -81,7 +82,7 @@ export default function DocumentChatPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:5000/api/documents/chat", {
+      const res = await fetch(apiUrl("/documents/chat"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

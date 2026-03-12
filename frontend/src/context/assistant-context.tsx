@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect } from "react";
+import { apiUrl } from "@/lib/api";
 
 /* ================= TYPES ================= */
 
@@ -189,7 +190,7 @@ export function AssistantProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     async function syncAssistantMode() {
       try {
-        const res = await fetch("http://localhost:5000/api/settings", {
+        const res = await fetch(apiUrl("/settings"), {
           headers: {
             Authorization: "Bearer " + localStorage.getItem("token"),
           },
