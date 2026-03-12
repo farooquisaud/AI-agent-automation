@@ -16,6 +16,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { apiUrl } from "@/lib/api";
 
 type Task = {
   _id: string;
@@ -40,7 +41,7 @@ export default function WorkflowTasksPage() {
     setLoading(true);
     try {
       const res = await fetch(
-        `http://localhost:5000/api/tasks?workflowId=${id}&page=${pageNumber}&limit=${PAGE_SIZE}`,
+        apiUrl(`/tasks?workflowId=${id}&page=${pageNumber}&limit=${PAGE_SIZE}`),
         {
           headers: {
             Authorization: "Bearer " + localStorage.getItem("token"),

@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Trash } from "lucide-react";
 import { CronExpressionParser } from "cron-parser";
 import { useToast } from "@/hooks/use-toast";
+import { apiUrl } from "@/lib/api";
 
 type Schedule = {
   _id: string;
@@ -85,7 +86,7 @@ export default function ScheduleTable({
   async function toggle(id: string, enabled: boolean) {
     try {
       setTogglingId(id);
-      await fetch(`http://localhost:5000/api/schedules/${id}`, {
+      await fetch(apiUrl(`/schedules/${id}`), {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -106,7 +107,7 @@ export default function ScheduleTable({
 
   async function remove(id: string) {
     if (!confirm("Delete this schedule?")) return;
-    await fetch(`http://localhost:5000/api/schedules/${id}`, {
+    await fetch(apiUrl(`/schedules/${id}`), {
       method: "DELETE",
       headers: {
         Authorization: "Bearer " + localStorage.getItem("token"),

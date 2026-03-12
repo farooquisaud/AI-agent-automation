@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { AnimatePresence, motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
+import { apiUrl } from "@/lib/api";
 
 /* ---------------- TYPES ---------------- */
 
@@ -220,7 +221,7 @@ export default function WorkflowBuilderPage() {
 
   async function fetchWorkflow() {
     try {
-      const res = await fetch(`http://localhost:5000/api/workflows/${id}`, {
+      const res = await fetch(apiUrl(`/workflows/${id}`), {
         headers: {
           Authorization: "Bearer " + localStorage.getItem("token"),
         },
@@ -320,7 +321,7 @@ export default function WorkflowBuilderPage() {
   useEffect(() => {
     async function fetchDocs() {
       try {
-        const res = await fetch("http://localhost:5000/api/documents", {
+        const res = await fetch(apiUrl("/documents"), {
           headers: {
             Authorization: "Bearer " + localStorage.getItem("token"),
           },
@@ -455,7 +456,7 @@ export default function WorkflowBuilderPage() {
       });
 
       const res = await fetch(
-        `http://localhost:5000/api/workflows/${id}/steps`,
+        apiUrl(`/workflows/${id}/steps`),
         {
           method: "PUT",
           headers: {

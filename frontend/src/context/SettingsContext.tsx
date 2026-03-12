@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { AuthContext } from "@/context/AuthContext";
+import { apiUrl } from "@/lib/api";
 
 type Settings = {
   theme?: string;
@@ -27,7 +28,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     if (!token) return;
 
     try {
-      const res = await fetch("http://localhost:5000/api/settings", {
+      const res = await fetch(apiUrl("/settings"), {
         headers: {
           Authorization: "Bearer " + token,
         },

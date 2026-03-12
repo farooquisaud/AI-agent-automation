@@ -27,6 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Plus, MoreVertical, Bot } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiUrl } from "@/lib/api";
 
 type Agent = {
   _id: string;
@@ -64,7 +65,7 @@ export default function WorkflowsPage() {
   const { setContext, clearContext } = useAssistantContext();
 
   async function fetchAgents() {
-    const res = await fetch("http://localhost:5000/api/agents", {
+    const res = await fetch(apiUrl("/agents"), {
       headers: {
         Authorization: "Bearer " + localStorage.getItem("token"),
       },
@@ -86,7 +87,7 @@ export default function WorkflowsPage() {
 
   async function fetchWorkflows() {
     try {
-      const res = await fetch("http://localhost:5000/api/workflows", {
+      const res = await fetch(apiUrl("/workflows"), {
         headers: {
           Authorization: "Bearer " + (localStorage.getItem("token") ?? ""),
         },
@@ -106,7 +107,7 @@ export default function WorkflowsPage() {
     if (!confirmed) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/workflows/${id}`, {
+      const res = await fetch(apiUrl(`/workflows/${id}`), {
         method: "DELETE",
         headers: {
           Authorization: "Bearer " + (localStorage.getItem("token") ?? ""),
@@ -304,7 +305,7 @@ function CreateWorkflowModal({
     ).value;
 
     try {
-      const res = await fetch("http://localhost:5000/api/workflows", {
+      const res = await fetch(apiUrl("/workflows"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

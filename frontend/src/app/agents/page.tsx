@@ -26,7 +26,9 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { apiUrl } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+
 type Agent = {
   _id: string;
   name: string;
@@ -66,7 +68,7 @@ export default function AgentsPage() {
 
   async function fetchAgents() {
     try {
-      const res = await fetch("http://localhost:5000/api/agents", {
+      const res = await fetch(apiUrl("/agents"), {
         headers: {
           Authorization: "Bearer " + localStorage.getItem("token"),
         },
@@ -110,7 +112,7 @@ export default function AgentsPage() {
   async function deleteAgent(id: string) {
     if (!confirm("Delete this agent?")) return;
 
-    await fetch(`http://localhost:5000/api/agents/${id}`, {
+    await fetch(apiUrl(`/agents/${id}`), {
       method: "DELETE",
       headers: {
         Authorization: "Bearer " + localStorage.getItem("token"),
@@ -287,7 +289,7 @@ export function CreateAgentModal({ onCreated }: CreateAgentModalProps) {
 
     async function loadProviders() {
       try {
-        const res = await fetch("http://localhost:5000/api/system/providers", {
+        const res = await fetch(apiUrl("/system/providers"), {
           headers: {
             Authorization: "Bearer " + localStorage.getItem("token"),
           },
@@ -330,7 +332,7 @@ export function CreateAgentModal({ onCreated }: CreateAgentModalProps) {
         },
       };
 
-      const res = await fetch("http://localhost:5000/api/agents", {
+      const res = await fetch(apiUrl("/agents"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

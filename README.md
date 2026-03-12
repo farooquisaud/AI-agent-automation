@@ -268,6 +268,7 @@ cd infra
 cp .env.example .env
 
 # Edit .env (at minimum set JWT_SECRET)
+# Port overrides are optional; safe defaults are already provided
 
 # Build and start all services
 docker compose up --build
@@ -279,15 +280,17 @@ After startup open:
 http://localhost:3000
 ```
 
+If `3000`, `5000`, or `27017` are already in use on your machine, change `FRONTEND_PORT`, `BACKEND_PORT`, or `MONGO_PORT` in `infra/.env` before starting.
+
 ---
 
 ### 🧩 Services
 
 | Service     | URL                                            | Description            |
 | ----------- | ---------------------------------------------- | ---------------------- |
-| Frontend    | [http://localhost:3000](http://localhost:3000) | Next.js web interface  |
-| Backend API | [http://localhost:5000](http://localhost:5000) | Express API server     |
-| MongoDB     | localhost:27017                                | Database               |
+| Frontend    | [http://localhost:3000](http://localhost:3000) | Next.js web interface (default, configurable) |
+| Backend API | [http://localhost:5000](http://localhost:5000) | Express API server (default, configurable) |
+| MongoDB     | localhost:27017                                | Database (default, configurable) |
 | Worker      | internal                                       | Executes workflow jobs |
 
 Startup order:
@@ -330,7 +333,16 @@ HF_API_KEY=
 
 # Optional local models
 OLLAMA_HOST=http://host.docker.internal:11434
+
+# Optional host port overrides (defaults shown)
+MONGO_PORT=27017
+BACKEND_PORT=5000
+FRONTEND_PORT=3000
 ```
+
+These port variables are optional. If you leave them unchanged, Docker Compose uses the default ports shown above. The frontend API URL is derived automatically from `BACKEND_PORT`.
+
+You do not need to set `NEXT_PUBLIC_API_URL` in `infra/.env` for Docker deployments.
 
 ---
 
@@ -368,6 +380,43 @@ docker compose down -v
 
 ---
 
+### Troubleshooting
+
+If a default port is already in use:
+
+```bash
+# infra/.env
+MONGO_PORT=27018
+BACKEND_PORT=5001
+FRONTEND_PORT=3001
+```
+
+The frontend API URL is derived automatically from `BACKEND_PORT`, so you do not need to set `NEXT_PUBLIC_API_URL` for Docker deployments.
+
+If Docker reports the backend as unhealthy right after startup:
+
+```bash
+docker compose logs -f backend mongo mongo-init-replica
+```
+
+If MongoDB was previously started with an old replica set configuration, do a clean local reset:
+
+```bash
+docker compose down -v
+docker compose up -d --build
+```
+
+This removes the local Mongo volume and recreates the replica set from scratch.
+
+If you want to confirm the stack is healthy after startup:
+
+```bash
+docker compose ps
+docker compose logs --tail 50 backend worker
+```
+
+---
+
 ### 🌐 Using With Existing Nginx
 
 If you already run an nginx reverse proxy:
@@ -376,6 +425,8 @@ If you already run an nginx reverse proxy:
 /api  → http://localhost:5000
 /     → http://localhost:3000
 ```
+
+If you override `BACKEND_PORT` or `FRONTEND_PORT` in `infra/.env`, update these proxy targets to match.
 
 ---
 

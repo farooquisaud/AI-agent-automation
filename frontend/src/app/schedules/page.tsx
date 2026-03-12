@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import ScheduleTable from "@/components/schedules/ScheduleTable";
 import CreateScheduleDialog from "@/components/schedules/CreateScheduleDialog";
 import { useAssistantContext } from "@/context/assistant-context";
+import { apiUrl } from "@/lib/api";
 
 export default function SchedulesPage() {
   const [schedules, setSchedules] = useState([]);
@@ -16,7 +17,7 @@ export default function SchedulesPage() {
   const { setContext, clearContext } = useAssistantContext();
 
   async function fetchSchedules() {
-    const res = await fetch("http://localhost:5000/api/schedules", {
+    const res = await fetch(apiUrl("/schedules"), {
       headers: {
         Authorization: "Bearer " + localStorage.getItem("token"),
       },

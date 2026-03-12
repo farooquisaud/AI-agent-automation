@@ -24,6 +24,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { useAssistantContext } from "@/context/assistant-context";
+import { apiUrl } from "@/lib/api";
 
 function getStepIcon(status: string) {
   switch (status) {
@@ -152,7 +153,7 @@ export default function TaskDetailPage() {
     if (!agentId) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/agents/${agentId}`, {
+      const res = await fetch(apiUrl(`/agents/${agentId}`), {
         headers: {
           Authorization: "Bearer " + localStorage.getItem("token"),
         },

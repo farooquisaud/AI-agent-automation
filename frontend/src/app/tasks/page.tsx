@@ -18,8 +18,10 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { apiUrl } from "@/lib/api";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
+
 const PAGE_SIZE = 10;
 
 type Task = {
@@ -96,7 +98,7 @@ export default function TasksPage() {
     if (!confirmed) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/tasks/${taskId}`, {
+      const res = await fetch(apiUrl(`/tasks/${taskId}`), {
         method: "DELETE",
         headers: {
           Authorization: "Bearer " + localStorage.getItem("token"),
@@ -127,7 +129,7 @@ export default function TasksPage() {
     setLoading(true);
     try {
       const res = await fetch(
-        `http://localhost:5000/api/tasks?page=${pageNumber}&limit=${PAGE_SIZE}`,
+        apiUrl(`/tasks?page=${pageNumber}&limit=${PAGE_SIZE}`),
         {
           headers: {
             Authorization: "Bearer " + localStorage.getItem("token"),

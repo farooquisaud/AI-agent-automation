@@ -3,6 +3,7 @@
 import { useState, useEffect, useContext, FormEvent } from "react";
 import { AuthContext } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
+import { apiUrl } from "@/lib/api";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,7 +37,7 @@ export default function RegisterPage() {
     const password = (form.elements.namedItem("password") as HTMLInputElement).value;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/auth/register`, {
+      const res = await fetch(apiUrl(`/auth/register`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password }),

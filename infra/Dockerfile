@@ -1,16 +1,16 @@
 # Stage 1: Backend
 FROM node:20 AS backend
 
-WORKDIR /app
+WORKDIR /app/backend
 
-COPY backend/package*.json ./backend/
-COPY backend/ ./backend/
+COPY backend/package*.json ./
+COPY backend/ ./
 
-RUN cd backend && npm ci --omit=dev
+RUN npm ci --omit=dev
 
 EXPOSE 5000
 
-CMD ["node", "backend/server.js"]
+CMD ["node", "server.js"]
 
 # Stage 2: Frontend
 FROM node:20 AS frontend

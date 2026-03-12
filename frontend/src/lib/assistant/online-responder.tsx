@@ -1,4 +1,5 @@
 import type { AssistantRuntimeContext } from "@/context/assistant-context";
+import { apiUrl } from "@/lib/api";
 
 function normalizeMarkdown(text: string) {
   return text
@@ -18,7 +19,7 @@ export async function onlineRespond(
   message: string,
   context?: AssistantRuntimeContext | null,
 ): Promise<OnlineAssistantResponse> {
-  const res = await fetch("http://localhost:5000/api/assistant/chat", {
+  const res = await fetch(apiUrl("/assistant/chat"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

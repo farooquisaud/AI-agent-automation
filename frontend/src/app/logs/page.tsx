@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Download, Pause, Play, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAssistantContext } from "@/context/assistant-context";
+import { apiUrl } from "@/lib/api";
 
 /* -------------------------
    Types
@@ -79,7 +80,7 @@ export default function LogsPage() {
     try {
       if (showLoader) setLoading(true);
 
-      const res = await fetch("http://localhost:5000/api/logs?limit=200", {
+      const res = await fetch(apiUrl("/logs?limit=200"), {
         headers: {
           Authorization: "Bearer " + localStorage.getItem("token"),
         },

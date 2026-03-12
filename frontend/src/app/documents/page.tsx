@@ -18,6 +18,7 @@ import {
   Search
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiUrl } from "@/lib/api";
 
 type Document = {
   _id: string;
@@ -41,7 +42,7 @@ export default function DocumentsPage() {
 
   async function fetchDocuments() {
     try {
-      const res = await fetch("http://localhost:5000/api/documents", {
+      const res = await fetch(apiUrl("/documents"), {
         headers: {
           Authorization: "Bearer " + localStorage.getItem("token"),
         },
@@ -87,7 +88,7 @@ export default function DocumentsPage() {
       const form = new FormData();
       form.append("file", file);
 
-      const res = await fetch("http://localhost:5000/api/documents/upload", {
+      const res = await fetch(apiUrl("/documents/upload"), {
         method: "POST",
         headers: {
           Authorization: "Bearer " + localStorage.getItem("token"),
@@ -119,7 +120,7 @@ export default function DocumentsPage() {
 
   async function deleteDoc(id: string) {
     try {
-      await fetch(`http://localhost:5000/api/documents/${id}`, {
+      await fetch(apiUrl(`/documents/${id}`), {
         method: "DELETE",
         headers: {
           Authorization: "Bearer " + localStorage.getItem("token"),

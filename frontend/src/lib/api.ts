@@ -9,7 +9,11 @@ type ApiOptions = RequestInit & {
   auth?: boolean; // default: true
 };
 
-const API_BASE = "http://localhost:5000/api";
+export const API_BASE = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api`;
+
+export function apiUrl(path: string) {
+  return `${API_BASE}${path}`;
+}
 
 /* -------------------------------
    Core API helper
@@ -22,7 +26,7 @@ export async function api<T>(
 
   const token = auth ? localStorage.getItem("token") : null;
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(apiUrl(path), {
     ...rest,
     headers: {
       ...(auth && token ? { Authorization: `Bearer ${token}` } : {}),

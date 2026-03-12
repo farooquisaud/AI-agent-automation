@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { apiUrl } from "@/lib/api";
 
 type CreateScheduleDialogProps = {
   onCreated: () => void;
@@ -72,7 +73,7 @@ export default function CreateScheduleDialog({
     setError("");
 
     try {
-      const res = await fetch("http://localhost:5000/api/schedules", {
+      const res = await fetch(apiUrl("/schedules"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
