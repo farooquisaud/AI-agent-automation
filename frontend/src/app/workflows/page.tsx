@@ -25,7 +25,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Plus, MoreVertical, Bot } from "lucide-react";
+import { Plus, MoreVertical, Bot, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiUrl } from "@/lib/api";
 
@@ -41,6 +41,15 @@ interface Workflow {
   status: "idle" | "running" | "failed" | "completed";
   agentId?: string;
 }
+
+type Template = {
+  id: string;
+  name: string;
+  description: string;
+  icon?: string;
+  category?: string;
+  stepsCount?: number;
+};
 
 function getStatusColor(status: string) {
   switch (status) {
@@ -58,7 +67,8 @@ function getStatusColor(status: string) {
 export default function WorkflowsPage() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState<false | "blank" | "template">(false);
+  const [editingWorkflow, setEditingWorkflow] = useState<Workflow | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [agentMap, setAgentMap] = useState<Record<string, string>>({});
   const { addToast } = useToast();
@@ -170,19 +180,6 @@ export default function WorkflowsPage() {
     return agentMap[agentId] ?? "Unknown agent";
   }
 
-  function getStatusBadge(status: Workflow["status"]) {
-    switch (status) {
-      case "running":
-        return "bg-blue-100 text-blue-700";
-      case "failed":
-        return "bg-red-100 text-red-700";
-      case "completed":
-        return "bg-green-100 text-green-700";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
-  }
-
   return (
     <AuthGuard>
       <div className="flex min-h-screen">
@@ -201,10 +198,25 @@ export default function WorkflowsPage() {
                 </p>
               </div>
 
-              <Button onClick={() => setOpen(true)}>
-                <Plus className="mr-2 size-4" />
-                Create Workflow
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button>
+                    <Plus className="mr-2 size-4" />
+                    Create Workflow
+                    <ChevronDown className="ml-2 size-4 opacity-70" />
+                  </Button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setOpen("blank")}>
+                    Blank Workflow
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem onClick={() => setOpen("template")}>
+                    Choose Template
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             {loading ? (
@@ -241,11 +253,24 @@ export default function WorkflowsPage() {
                         </DropdownMenuTrigger>
 
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>Edit</DropdownMenuItem>
-                          <DropdownMenuItem>Duplicate</DropdownMenuItem>
+                          <Link href={`/workflows/${workflow._id}/builder`}>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setEditingWorkflow(workflow);
+                              }}
+                            >
+                              Edit Workflow Details
+                            </DropdownMenuItem>
+                          </Link>
                           <DropdownMenuItem
                             className="text-destructive"
-                            onClick={() => handleDeleteWorkflow(workflow._id)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleDeleteWorkflow(workflow._id);
+                            }}
                           >
                             Delete
                           </DropdownMenuItem>
@@ -271,8 +296,13 @@ export default function WorkflowsPage() {
         </main>
 
         <CreateWorkflowModal
-          open={open}
-          onOpenChange={setOpen}
+          mode={open}
+          onOpenChange={() => setOpen(false)}
+          refresh={fetchWorkflows}
+        />
+        <EditWorkflowModal
+          workflow={editingWorkflow}
+          close={() => setEditingWorkflow(null)}
           refresh={fetchWorkflows}
         />
       </div>
@@ -283,23 +313,29 @@ export default function WorkflowsPage() {
 /* ---------------- Modal ---------------- */
 
 function CreateWorkflowModal({
-  open,
+  mode,
   onOpenChange,
   refresh,
 }: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
+  mode: false | "blank" | "template";
+  onOpenChange: () => void;
   refresh: () => void;
 }) {
   const [loading, setLoading] = useState(false);
+
   const { addToast } = useToast();
+
+  /* Submit */
 
   async function createWorkflow(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+
     setLoading(true);
 
     const form = e.currentTarget;
+
     const name = (form.elements.namedItem("name") as HTMLInputElement).value;
+
     const description = (
       form.elements.namedItem("description") as HTMLTextAreaElement
     ).value;
@@ -315,17 +351,19 @@ function CreateWorkflowModal({
       });
 
       if (!res.ok) throw new Error("Failed to create workflow");
+
       addToast({
         type: "success",
         title: "Workflow created",
         description: "Your workflow was created successfully.",
       });
+
       refresh();
       form.reset();
-      onOpenChange(false);
+      onOpenChange();
     } catch (err) {
       console.error("Create workflow failed", err);
-      //   alert("Failed to create workflow");
+
       addToast({
         type: "error",
         title: "Failed to create workflow",
@@ -338,55 +376,232 @@ function CreateWorkflowModal({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={!!mode} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Create workflow</DialogTitle>
+          <DialogTitle>Create Workflow</DialogTitle>
           <DialogDescription>
-            Create a new automation workflow. You’ll configure agents and steps
-            after creation.
+            Create a blank workflow or start from a template.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={createWorkflow} className="space-y-6">
-          {/* Workflow name */}
-          <div className="space-y-2">
-            <Label htmlFor="name">Workflow name</Label>
-            <Input
-              id="name"
-              name="name"
-              placeholder="e.g. Daily Report Generator"
-              required
-              autoFocus
-            />
-          </div>
+        {mode === "blank" && (
+          <form onSubmit={createWorkflow} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="name">Workflow name</Label>
+              <Input
+                id="name"
+                name="name"
+                placeholder="e.g. Daily Report Generator"
+                required
+              />
+            </div>
 
-          {/* Description */}
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              name="description"
-              placeholder="Describe what this workflow does…"
-              className="min-h-[100px]"
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                name="description"
+                placeholder="Describe what this workflow does…"
+                className="min-h-[100px]"
+              />
+            </div>
 
-          <DialogFooter className="gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={loading}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? "Creating…" : "Create workflow"}
-            </Button>
-          </DialogFooter>
-        </form>
+            <DialogFooter>
+              <Button variant="outline" type="button" onClick={onOpenChange}>
+                Cancel
+              </Button>
+
+              <Button type="submit">Create Workflow</Button>
+            </DialogFooter>
+          </form>
+        )}
+        {mode === "template" && (
+          <TemplateSelector refresh={refresh} close={onOpenChange} />
+        )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function EditWorkflowModal({
+  workflow,
+  close,
+  refresh,
+}: {
+  workflow: Workflow | null;
+  close: () => void;
+  refresh: () => void;
+}) {
+  const [name, setName] = useState(workflow?.name ?? "");
+  const [description, setDescription] = useState(workflow?.description ?? "");
+  const [loading, setLoading] = useState(false);
+  const { addToast } = useToast();
+
+  useEffect(() => {
+    if (workflow) {
+      setName(workflow.name);
+      setDescription(workflow.description ?? "");
+    }
+  }, [workflow]);
+
+  async function save() {
+    if (!workflow) return;
+
+    setLoading(true);
+
+    try {
+      const res = await fetch(apiUrl(`/workflows/${workflow._id}`), {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + (localStorage.getItem("token") ?? ""),
+        },
+        body: JSON.stringify({ name, description }),
+      });
+
+      if (!res.ok) throw new Error("Update failed");
+
+      addToast({
+        type: "success",
+        title: "Workflow updated",
+      });
+
+      refresh();
+      close();
+    } catch {
+      addToast({
+        type: "error",
+        title: "Failed to update workflow",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Dialog open={!!workflow} onOpenChange={close}>
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Edit Workflow</DialogTitle>
+          <DialogDescription>
+            Update the workflow name and description.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div>
+            <Label>Workflow Name</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+
+          <div>
+            <Label>Description</Label>
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={close}>
+            Cancel
+          </Button>
+
+          <Button onClick={save} disabled={loading}>
+            Save Changes
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function TemplateSelector({
+  refresh,
+  close,
+}: {
+  refresh: () => void;
+  close: () => void;
+}) {
+  const [templates, setTemplates] = useState<any[]>([]);
+  const { addToast } = useToast();
+
+  async function fetchTemplates() {
+    const res = await fetch(apiUrl("/templates"), {
+      headers: {
+        Authorization: "Bearer " + localStorage.getItem("token"),
+      },
+    });
+
+    const data = await res.json();
+
+    if (data.ok) setTemplates(data.templates);
+  }
+
+  useEffect(() => {
+    fetchTemplates();
+  }, []);
+
+  async function useTemplate(id: string) {
+    const res = await fetch(apiUrl(`/templates/import/${id}`), {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + localStorage.getItem("token"),
+      },
+    });
+
+    if (!res.ok) {
+      addToast({
+        type: "error",
+        title: "Failed to create workflow",
+      });
+      return;
+    }
+
+    addToast({
+      type: "success",
+      title: "Workflow created from template",
+    });
+
+    refresh();
+    close();
+  }
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[420px] overflow-y-auto pr-2">
+      {templates.map((t) => (
+        <Card
+          key={t.id}
+          className="p-5 hover:border-primary/40 hover:shadow-md transition cursor-pointer flex flex-col justify-between"
+        >
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-lg font-semibold">
+              <span className="text-xl">{t.icon ?? "⚙️"}</span>
+              {t.name}
+            </div>
+
+            <p className="text-sm text-muted-foreground line-clamp-2">
+              {t.description}
+            </p>
+
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              {t.category && <Badge variant="secondary">{t.category}</Badge>}
+
+              {t.stepsCount && <span>{t.stepsCount} steps</span>}
+            </div>
+          </div>
+
+          <Button
+            size="sm"
+            className="mt-4 w-full"
+            onClick={() => useTemplate(t.id)}
+          >
+            Use Template
+          </Button>
+        </Card>
+      ))}
+    </div>
   );
 }

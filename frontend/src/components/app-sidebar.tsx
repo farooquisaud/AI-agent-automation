@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
 import { Brain, FileText } from "lucide-react";
+import { ReportIssueDialog } from "@/components/report-issue-dialog";
 
 const navItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -39,7 +40,7 @@ export function AppSidebar() {
   useEffect(() => {
     document.documentElement.style.setProperty(
       "--sidebar-width",
-      collapsed ? `${SIDEBAR_COLLAPSED}px` : `${SIDEBAR_EXPANDED}px`
+      collapsed ? `${SIDEBAR_COLLAPSED}px` : `${SIDEBAR_EXPANDED}px`,
     );
   }, [collapsed]);
 
@@ -78,7 +79,7 @@ export function AppSidebar() {
             <ChevronLeft
               className={cn(
                 "size-4 transition-transform",
-                collapsed && "rotate-180"
+                collapsed && "rotate-180",
               )}
             />
           </button>
@@ -99,7 +100,7 @@ export function AppSidebar() {
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                   isActive
                     ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
                 )}
               >
                 <item.icon className="size-4 shrink-0" />
@@ -123,7 +124,15 @@ export function AppSidebar() {
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-border p-3">
+        <div className="border-t border-border p-3 space-y-3">
+          {!collapsed && (
+            <>
+              <div className="text-xs text-muted-foreground px-2">Support</div>
+
+              <ReportIssueDialog />
+            </>
+          )}
+
           <UserProfileMenu collapsed={!!collapsed} />
         </div>
       </div>

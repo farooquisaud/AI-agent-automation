@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   Circle,
   XCircle,
+  Download,
 } from "lucide-react";
 import {
   Select,
@@ -246,14 +247,11 @@ export default function WorkflowDetailPage() {
 
         // Fetch latest task details
         if (sortedTaskIds.length > 0) {
-          const taskRes = await fetch(
-            apiUrl(`/tasks/${sortedTaskIds[0]}`),
-            {
-              headers: {
-                Authorization: "Bearer " + localStorage.getItem("token"),
-              },
+          const taskRes = await fetch(apiUrl(`/tasks/${sortedTaskIds[0]}`), {
+            headers: {
+              Authorization: "Bearer " + localStorage.getItem("token"),
             },
-          );
+          });
 
           const taskData = await taskRes.json();
           if (taskData.ok) {
@@ -332,17 +330,14 @@ export default function WorkflowDetailPage() {
     }
 
     try {
-      await fetch(
-        apiUrl(`/workflows/${workflow._id}/assign-agent`),
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: "Bearer " + localStorage.getItem("token"),
-          },
-          body: JSON.stringify({ agentId: selectedAgent }),
+      await fetch(apiUrl(`/workflows/${workflow._id}/assign-agent`), {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + localStorage.getItem("token"),
         },
-      );
+        body: JSON.stringify({ agentId: selectedAgent }),
+      });
       // alert("Agent assigned successfully");
       addToast({
         type: "success",
@@ -352,6 +347,43 @@ export default function WorkflowDetailPage() {
     } catch (err) {
       console.error("Error assigning agent:", err);
     }
+  }
+
+  function exportWorkflow() {
+    if (!workflow) return;
+
+    const template = {
+      id: workflow.name.toLowerCase().replace(/\s+/g, "-"),
+      name: workflow.name,
+      description: workflow.description || "",
+      category: "Custom",
+      icon: "⚙️",
+      tags: ["workflow"],
+      steps:
+        workflow.metadata?.steps?.map((step) => {
+          const { stepId, ...rest } = step;
+          return rest; // remove stepId for template
+        }) || [],
+    };
+
+    const blob = new Blob([JSON.stringify(template, null, 2)], {
+      type: "application/json",
+    });
+
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${template.id}.json`;
+    a.click();
+
+    URL.revokeObjectURL(url);
+
+    addToast({
+      type: "success",
+      title: "Workflow exported",
+      description: "Template JSON downloaded successfully",
+    });
   }
 
   /** Load workflow + agents */
@@ -365,14 +397,11 @@ export default function WorkflowDetailPage() {
 
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(
-          apiUrl(`/tasks/${latestTask._id}`),
-          {
-            headers: {
-              Authorization: "Bearer " + localStorage.getItem("token"),
-            },
+        const res = await fetch(apiUrl(`/tasks/${latestTask._id}`), {
+          headers: {
+            Authorization: "Bearer " + localStorage.getItem("token"),
           },
-        );
+        });
 
         const data = await res.json();
         if (data.ok) {
@@ -468,12 +497,18 @@ export default function WorkflowDetailPage() {
             >
               {workflow.status}
             </Badge>
+
             <Link href={`/workflows/${workflow._id}/tasks`}>
               <Button variant="outline" size="sm">
                 <ListChecks className="mr-2 size-4" />
                 View Task History
               </Button>
             </Link>
+
+            <Button variant="outline" size="sm" onClick={exportWorkflow}>
+              <Download className="mr-2 size-4" />
+              Export Workflow
+            </Button>
           </div>
 
           <Card className="p-8">
