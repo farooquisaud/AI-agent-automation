@@ -4,25 +4,6 @@
   <strong>Open-source, local-first workflow execution engine for AI agents</strong>
 </p>
 
-<p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green.svg" /></a>
-  <img src="https://img.shields.io/badge/status-active-success" />
-  <img src="https://img.shields.io/badge/execution-deterministic-blue" />
-  <img src="https://img.shields.io/badge/local--first-yes-important" /> <br />
-  <img src="https://img.shields.io/github/last-commit/vmDeshpande/ai-agent-automation" />
-<img src="https://img.shields.io/github/commit-activity/m/vmDeshpande/ai-agent-automation" />
-<img src="https://img.shields.io/github/stars/vmDeshpande/ai-agent-automation?style=social" />
-</p>
-
-<p align="center">
-  <a href="https://vmdeshpande.github.io/ai-automation-platform-website/docs">Documentation</a> ·
-  <a href="https://vmdeshpande.github.io/ai-automation-platform-website/features/">Features</a> ·
-  <a href="https://vmdeshpande.github.io/ai-automation-platform-website/architecture/">Architecture</a> ·
-  <a href="https://github.com/vmDeshpande/ai-agent-automation/issues">Issues</a><br><br>
-</p>
-
----
-
 > [!TIP]
 > ⭐ Starring this repo helps more developers discover **AI Agent Automation**
 >
