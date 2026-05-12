@@ -135,11 +135,6 @@ Workflow Engine
 MongoDB (Workflows, Tasks, Agents, Logs)
 ```
 
-> 📘 Detailed architecture, execution model, and internals:
-> [https://vmdeshpande.github.io/ai-automation-platform-website/](https://vmdeshpande.github.io/ai-automation-platform-website/)
-
----
-
 ## 🛠 Tech Stack
 
 **Backend**
@@ -438,13 +433,6 @@ frontend/
   └─ styles/
 ```
 
----
-
-## 🛣 Roadmap
-
-Planned features and long-term vision live on the project website:
-
-👉 [https://vmdeshpande.github.io/ai-automation-platform-website/](https://vmdeshpande.github.io/ai-automation-platform-website/)
 
 ---
 
